@@ -164,6 +164,17 @@ const TRICKS=[{n:'BARSPIN',dur:1.4,bonus:100,col:'#39f'},{n:'TAILWHIP',dur:1.6,b
 const DROPS=[{n:'5-ЭТАЖКА',h:15,col:'#777',gr:'#333',sky:'#666',desc:'15м'},{n:'ЗЕМЛЯНОЙ',h:10,col:'#8b6',gr:'#4a5',sky:'#8cf',desc:'10м'},{n:'РУЧИХА',h:8,col:'#a63',gr:'#5a3',sky:'#bcd',desc:'8м'},{n:'ЭКСТРИМ',h:19,col:'#c33',gr:'#555',sky:'#333',desc:'19м'}];
 const ASM_LEVELS=[{bolts:4,parts:['fork','wheel1','wheel2'],reward:500,desc:'Базовый'},{bolts:6,parts:['fork','wheel1','wheel2','brake'],reward:1000,desc:'Средний'},{bolts:8,parts:['fork','wheel1','wheel2','brake','drive','cockpit'],reward:2000,desc:'Про'}];
 
+// 20 шагов для новой Мастерской 2.0
+const STEPS2 = [
+    "Приварить верхнюю трубу", "Приварить нижнюю трубу", "Приварить подседельную трубу",
+    "Приварить рулевую колонку", "Приварить дропауты (крепления колес)", 
+    "Установить рулевую колонку", "Запрессовать каретку", "Установить вилку",
+    "Установить вынос и руль", "Установить шатуны", "Установить кассету",
+    "Натянуть цепь", "Установить переключатель скоростей", "Установить переднее колесо",
+    "Установить заднее колесо", "Установить передний тормоз", "Установить задний тормоз",
+    "Вставить колодки", "Установить седло и подседельный штырь", "Накачать колеса и затянуть болты"
+];
+
 // ===== СОСТОЯНИЕ =====
 let S='splash',R=0,B=0,$=0,M=0,fr=0,own=BK.map((b,i)=>+!i),P={x:0},ms=[],nm=0,msg='',mt=0,btns=[],ptr={},sus=0;
 let gear={helmet:'#fc0',jersey:'#e33',pants:'#222',chest:false,fox:false,rbHelmet:false,rbChest:false};
@@ -184,10 +195,11 @@ let usedCodes = [];
 let devCodeUsed = false;
 let pendingDevCode = '';
 let lastNetEmit = 0;
-let rbLives = 5; // Жизни Red Bull
+let rbLives = 5;
+let asm2 = {step: 0, done: false};
 
 const SK='mtb_apk_final_multiplayer';
-function save(){try{localStorage.setItem(SK,JSON.stringify({$,M,B,own,fr,best,gear,unlocked,missions,cf,useCf,tr,R,build,ownedParts,dropBest,tutorialDone,stuntBest,rbLevel,asmLevel,isDevMode,usedCodes,devCodeUsed}))}catch(e){}}
+function save(){try{localStorage.setItem(SK,JSON.stringify({$,M,B,own,fr,best,gear,unlocked,missions,cf,useCf,tr,R,build,ownedParts,dropBest,tutorialDone,stuntBest,rbLevel,asmLevel,isDevMode,usedCodes,devCodeUsed,asm2}))}catch(e){}}
 function loadData(){try{const d=JSON.parse(localStorage.getItem(SK));if(!d)return;
 if(d.$)$=d.$;if(d.M)M=d.M;if(d.B)B=d.B;if(d.own)own=d.own;if(d.fr)fr=d.fr;if(d.best)best=d.best;
 if(d.gear)Object.assign(gear,d.gear);if(d.unlocked)Object.assign(unlocked,d.unlocked);if(d.missions)Object.assign(missions,d.missions);
@@ -198,11 +210,12 @@ if(d.stuntBest)stuntBest=d.stuntBest;if(d.rbLevel)rbLevel=d.rbLevel;if(d.asmLeve
 if(d.isDevMode)isDevMode=d.isDevMode;
 if(d.usedCodes)usedCodes=d.usedCodes;
 if(d.devCodeUsed)devCodeUsed=d.devCodeUsed;
+if(d.asm2)asm2=d.asm2;
 }catch(e){}}
 loadData();
 addEventListener('pagehide',save);addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 
-// ===== СИСТЕМА КОДОВ =====
+// ===== СИСТЕМА КОДОВ (С ЗАЩИТОЙ) =====
 function openCodeUI() {
   document.getElementById('code-overlay').style.display = 'flex';
   document.getElementById('code-input').value = '';
@@ -216,11 +229,17 @@ function submitCode() {
   closeCodeUI();
   
   if (input === 'MTB-DEV-99' || input === 'MTB-TEST-01' || input === 'MTB-2016-12') {
-    if (devCodeUsed) {
-      pendingDevCode = input;
-      document.getElementById('warn-overlay').style.display = 'flex';
+    // Защита: запрашиваем код подтверждения
+    let conf = prompt("Введите секретный код подтверждения разработчика:");
+    if (conf && (conf.trim().toUpperCase() === 'DF 2016' || conf.trim().toUpperCase() === 'DF2016')) {
+        if (devCodeUsed) {
+          pendingDevCode = input;
+          document.getElementById('warn-overlay').style.display = 'flex';
+        } else {
+          activateDevCode(input);
+        }
     } else {
-      activateDevCode(input);
+        alert("НЕВЕРНЫЙ КОД ПОДТВЕРЖДЕНИЯ! Доступ запрещен.");
     }
   } 
   else if (input.startsWith('CODE-')) {
@@ -267,11 +286,17 @@ function activateDevCode(code) {
   alert('КОД РАЗРАБОТЧИКА АКТИВИРОВАН!\nВсе функции и байки разблокированы.');
 }
 
-// ===== ВВОД =====
-function transformTouch(cx,cy){
-  let gx,gy;
-  if(!isRotated){gx=cx;gy=cy}else{const physW=window.innerWidth;gx=cy;gy=physW-cx}
+// ===== ВВОД (ИСПРАВЛЕН ТАЧ) =====
+function transformTouch(clientX,clientY){
   const s=settings.scale||1;
+  let gx,gy;
+  if(!isRotated){
+      gx=clientX;
+      gy=clientY;
+  }else{
+      gx=clientY;
+      gy=H-clientX; // Используем H (внутреннюю высоту), чтобы не зависеть от плавающей адресной строки
+  }
   return[(gx-W/2)/s+W/2,(gy-H/2)/s+H/2];
 }
 function handleTap(clientX,clientY,id){
@@ -484,6 +509,29 @@ function settings_screen(){
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.85,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
 
+// ===== ЭКРАН ОБНОВЛЕНИЯ =====
+function patchNotes(){
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
+  backBtn('menu');
+  txt('ОБНОВЛЕНИЕ 11.11 19:31',W/2,44,Math.min(22,W*.045),'#fc0','center');
+  
+  let y = 90;
+  const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
+  
+  line('ЧТО НОВОГО:', '#0f0', 18);
+  line('- МАСТЕРСКАЯ 2.0: 20 этапов сборки велика!', '#fff');
+  line('- Собранный велик: макс. скорость 150 км/ч.', '#fff');
+  line('- Внимание: поездка на кастоме стоит 10 МЕТ.', '#fc0');
+  line('- Red Bull экипировка (дает 5 жизней при падении).', '#fff');
+  line('- Шторка миссий стала меньше и не мешает.', '#fff');
+  y += 15;
+  line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
+  line('- Починены трюки (теперь считаются и дают деньги).', '#fff');
+  line('- Миссии теперь засчитываются на ВСЕХ трассах.', '#fff');
+  line('- Улучшена синхронизация мультиплеера.', '#fff');
+  line('- Исправлены тапы в браузере.', '#fff');
+}
+
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
   txt('MTB FREERIDE',W/2,H*.07,Math.min(30,W*.055),'#fc0','center');
@@ -497,25 +545,108 @@ function menu(){
     txt(r.n,x+cardW/2,y+cardH*.6,Math.min(14,cardH*.11),'#fff','center');
     txt(r.t,x+cardW/2,y+cardH*.78,Math.min(10,cardH*.08),r.col,'center');
     btns.push({x,y,w:cardW,h:cardH,f:()=>{R=i;save()}})});
+  
   const bh=Math.min(48,H*.075),row1y=cardY+cardH+14,bw=Math.min(180,(W-40)/2-8);
-  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{if(!tutorialDone)startAssemble();else startLoading(start)},'#2a7');
-  const row2y=row1y+bh+10,bw2=Math.min(85,(W-30)/7-5),row2x=(W-bw2*7-6*5)/2;
+  
+  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{
+      if(useCf && cf || useCf && asm2.done) {
+          if(M >= 10) {
+              M -= 10;
+              save();
+              startLoading(start);
+          } else {
+              say('Нужно 10 МЕТ для кастомного велика!');
+          }
+      } else {
+          if(!tutorialDone)startAssemble();
+          else startLoading(start);
+      }
+  },'#2a7');
+  
+  const row2y=row1y+bh+10,bw2=Math.min(85,(W-30)/8-5),row2x=(W-bw2*8-7*5)/2;
   btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a');
   btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62');
   btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
-  btn('МАСТ',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33');
-  btn('СБОР',row2x+(bw2+5)*4,row2y,bw2,bh,()=>startAssemble(),'#3c9');
+  btn('СВАРКА',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33');
+  btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9');
   btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
-  btn('⚙',row2x+(bw2+5)*6,row2y,bw2,bh,()=>S='settings','#555');
-  const row3y=row2y+bh+10;
-  btn('ДРОПЫ',(W-280)/2,row3y,130,bh,()=>S='drops','#e01');
-  btn('RED BULL',(W-280)/2+140,row3y,140,bh,()=>S='rbMenu','#d90000');
-  btn('ТРАССА: '+TR[tr].n,(W-Math.min(280,W*.55))/2,row3y+bh+8,Math.min(280,W*.55),bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
+  btn('ДРОП',row2x+(bw2+5)*6,row2y,bw2,bh,()=>S='drops','#e01');
+  btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
   
+  const row3y=row2y+bh+10;
+  btn('RED BULL',(W-Math.min(280,W*.55))/2,row3y,Math.min(280,W*.55),bh*.85,()=>S='rbMenu','#d90000');
+  btn('ТРАССА: '+TR[tr].n,(W-Math.min(280,W*.55))/2,row3y+bh*.85+8,Math.min(280,W*.55),bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
+  
+  btn('ОБНОВЛЕНИЕ 11.11', (W-280)/2, row3y+bh*1.7+16, 280, bh*.8, ()=>S='patch', '#357');
   btn('ВВЕСТИ КОД',W-130,H-50,120,44,()=>{openCodeUI()},'#0aa');
 }
 
-// ===== СБОРКА =====
+// ===== НОВАЯ МАСТЕРСКАЯ 2.0 (СБОРКА) =====
+function workshop2(){
+  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H);
+  backBtn('menu');txt('МАСТЕРСКАЯ 2.0',W/2,44,Math.min(22,W*.045),'#3c9','center');
+  
+  if(asm2.done){
+    txt('ВЕЛИК СОБРАН!', W/2, H*.3, 30, '#0f0', 'center');
+    txt('Максимальная скорость: 150 км/ч', W/2, H*.4, 18, '#fff', 'center');
+    txt('Стоимость заезда: 10 МЕТ', W/2, H*.48, 18, '#fc0', 'center');
+    
+    if(useCf) {
+        btn('СНЯТЬ С ГОНКИ', W/2-150, H*.65, 300, 60, ()=>{useCf=false;save()}, '#b33');
+    } else {
+        btn('ПОСТАВИТЬ НА ГОНКУ', W/2-150, H*.65, 300, 60, ()=>{useCf=true;save()}, '#2a7');
+    }
+  } else {
+    const step = Math.min(asm2.step, 19);
+    txt('СБОРКА ВЕЛИКА', W/2, H*.15, 24, '#fc0', 'center');
+    txt('Шаг ' + (step+1) + ' из 20', W/2, H*.23, 16, '#ccc', 'center');
+    
+    const bw = Math.min(400, W-60);
+    const bx = (W-bw)/2, by = H*.3;
+    g.fillStyle='#333';g.fillRect(bx,by,bw,20);
+    g.fillStyle='#3c9';g.fillRect(bx,by,bw*(step/20),20);
+    g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(bx,by,bw,20);
+    
+    g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(W/2-180, H*.45, 360, 80);
+    g.strokeStyle='#3c9';g.lineWidth=2;g.strokeRect(W/2-180, H*.45, 360, 80);
+    
+    let text = STEPS2[step];
+    txt(text, W/2, H*.45+45, Math.min(18, (360/text.length)*1.5), '#fff', 'center');
+    
+    btn('ВЫПОЛНИТЬ ШАГ', W/2-150, H*.68, 300, 60, ()=>{
+        asm2.step++;
+        if(asm2.step >= 20) {
+            asm2.done = true;
+            useCf = true;
+            save();
+            say('ВЕЛИК СОБРАН!');
+        }
+        save();
+    }, '#3c9');
+  }
+}
+
+// ===== СТАРАЯ МАСТЕРСКАЯ (СВАРКА) =====
+function workshop(){
+  g.fillStyle='#2a2320';g.fillRect(0,0,W,H);
+  backBtn('menu');txt('СВАРКА РАМЫ',W/2,44,Math.min(22,W*.045),'#fc0','center');
+  txt('$'+Math.floor($)+'  МЕТ '+M,20,72,14,'#0f0');
+  
+  if(useCf) txt('ВНИМАНИЕ: КАСТОМ 150 КМ/Ч (10 МЕТ)', W/2, 90, 12, '#e33', 'center');
+
+  const x=20,y=H*.28,N=[4,3,7],rowW=W-40;
+  ['Материал','Форма','Цвет'].forEach((n,i)=>{const yy=y+i*66;txt(n,x,yy-6,15,'#ccc');
+    btn('<',x+80,yy,50,42,()=>fd[i]=(fd[i]+N[i]-1)%N[i],'#555');
+    g.fillStyle=i==2?CL[fd[2]]:'#357';g.fillRect(x+140,yy,rowW-200,42);
+    if(i<2){g.fillStyle='#fff';g.font='bold 14px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(i?GEO[fd[1]].n:MAT[fd[0]].n,x+140+(rowW-200)/2,yy+21)}
+    btn('>',x+rowW-50,yy,50,42,()=>fd[i]=(fd[i]+1)%N[i],'#555')});
+  const by=y+215;
+  btn('СВАРИТЬ',x,by,(W-50)/2,52,()=>{if(M>=MAT[fd[0]].c){M-=MAT[fd[0]].c;cf={m:fd[0],g:fd[1],col:fd[2]};useCf=true;save();say('Сварено')}else say('Мало')},'#a62');
+  btn((useCf?'V':'X')+' НА ВЕЛ',x+(W-50)/2+10,by,(W-50)/2,52,()=>{if(cf){useCf=!useCf;save()}},'#357');
+  btn('РАМА ур.'+fr+' (10М)',x,by+64,W-40,48,()=>{if(M>=10){M-=10;fr++;save()}else say('Мало')},'#2a7');
+}
+
+// ===== СБОРКА (ТУТОРИАЛ) =====
 function startAssemble(){asm={step:0,level:asmLevel,bolts:[],parts:[],pumps:0,helpTimer:0,rewarded:false};startLoading(()=>{S='assemble'})}
 function assemble(dt){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H);
@@ -792,7 +923,14 @@ function ride(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
   while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
-  const pStats=partsStats();const vmax=(3+RD[R].s*.4)*(1+fr*.1)*(1+BK[B].sp*.06+cfS()+pStats.sp);
+  const pStats=partsStats();
+  
+  let vmax=(3+RD[R].s*.4)*(1+fr*.1)*(1+BK[B].sp*.06+cfS()+pStats.sp);
+  
+  if(asm2.done && useCf) {
+      vmax = Math.min(vmax, 15);
+  }
+
   const btnR=Math.min(55,Math.min(W,H)*.11);
   const gasCX=W-btnR-20,gasCY=H-btnR-25,brakeCX=btnR+20,brakeCY=H-btnR-25,jumpCX=W/2,jumpCY=H-btnR-25,trickCX=W/2+(btnR+20),trickCY=H-btnR-25;
   
@@ -921,16 +1059,20 @@ function ride(dt){
     g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,H);
     txt('УПАЛ',W/2,H/2-50,30,'#f55','center');
     txt('Проехал: '+Math.floor(P.x/30)+'м  Рекорд: '+best+'м',W/2,H/2-15,16,'#fff','center');
-    btn('ЗАНОВО',W/2-Math.min(180,W*.35)-10,H/2+20,Math.min(180,W*.35),50,()=>startLoading(start),'#2a7');
+    btn('ЗАНОВО',W/2-Math.min(180,W*.35)-10,H/2+20,Math.min(180,W*.35),50,()=>{
+        if(asm2.done && useCf) {
+            if(M >= 10) { M -= 10; save(); startLoading(start); }
+            else { S='menu'; say('Мало металла для кастома!'); }
+        } else startLoading(start);
+    },'#2a7');
     btn('МЕНЮ',W/2+10,H/2+20,Math.min(180,W*.35),50,()=>{best=Math.max(best,Math.floor(P.x/30));save();S='menu'},'#555')
   }
 }
 
-// ИЗМЕНЕННАЯ ФУНКЦИЯ МИССИЙ (теперь маленькая и не мешает)
 function drawMissions(){
-  g.fillStyle='rgba(0,0,0,0.6)'; // Фон чуть прозрачный
-  g.fillRect(10, 85, 155, 85);   // Маленький квадрат слева
-  txt('МИССИИ', 15, 100, 11, '#fc0');
+  g.fillStyle='rgba(0,0,0,0.6)';
+  g.fillRect(10, 65, 155, 85);
+  txt('МИССИИ', 15, 80, 11, '#fc0');
   const list=[
     {k:'flip5',label:'5 флипов'},
     {k:'trick10',label:'10 трюков'},
@@ -939,7 +1081,7 @@ function drawMissions(){
   ];
   list.forEach((m,i)=>{
     const msn=missions[m.k];
-    const y=115+i*13; // Уменьшили расстояние
+    const y=95+i*13;
     txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need, 15, y, 9, msn.done?'#0f0':'#fff');
   });
 }
@@ -981,23 +1123,6 @@ function garage(){
     else{g.fillStyle='#fc0';g.fillText('$'+it.price,x+6,y+38)}
     btns.push({x,y,w:colW,h:rowH,f:()=>{if(isEq)return;if(isOwned){build[garageTab]=i;save()}else if($>=it.price){$-=it.price;ownedParts[garageTab][i]=1;build[garageTab]=i;save()}else say('Мало денег')}})
   });
-}
-
-// ===== МАСТЕРСКАЯ =====
-function workshop(){
-  g.fillStyle='#2a2320';g.fillRect(0,0,W,H);
-  backBtn('menu');txt('МАСТЕРСКАЯ',W/2,44,Math.min(22,W*.045),'#fc0','center');
-  txt('$'+Math.floor($)+'  МЕТ '+M,20,72,14,'#0f0');
-  const x=20,y=H*.28,N=[4,3,7],rowW=W-40;
-  ['Материал','Форма','Цвет'].forEach((n,i)=>{const yy=y+i*66;txt(n,x,yy-6,15,'#ccc');
-    btn('<',x+80,yy,50,42,()=>fd[i]=(fd[i]+N[i]-1)%N[i],'#555');
-    g.fillStyle=i==2?CL[fd[2]]:'#357';g.fillRect(x+140,yy,rowW-200,42);
-    if(i<2){g.fillStyle='#fff';g.font='bold 14px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(i?GEO[fd[1]].n:MAT[fd[0]].n,x+140+(rowW-200)/2,yy+21)}
-    btn('>',x+rowW-50,yy,50,42,()=>fd[i]=(fd[i]+1)%N[i],'#555')});
-  const by=y+215;
-  btn('СВАРИТЬ',x,by,(W-50)/2,52,()=>{if(M>=MAT[fd[0]].c){M-=MAT[fd[0]].c;cf={m:fd[0],g:fd[1],col:fd[2]};useCf=true;save();say('Сварено')}else say('Мало')},'#a62');
-  btn((useCf?'V':'X')+' НА ВЕЛ',x+(W-50)/2+10,by,(W-50)/2,52,()=>{if(cf){useCf=!useCf;save()}},'#357');
-  btn('РАМА ур.'+fr+' (10М)',x,by+64,W-40,48,()=>{if(M>=10){M-=10;fr++;save()}else say('Мало')},'#2a7');
 }
 
 // ===== МАГАЗИН =====
@@ -1075,6 +1200,7 @@ function loop(now){
     if(loading.on){loading.p=Math.min(1,loading.p+dt*1.5);if(loading.p>=1){loading.on=false;const cb=loading.cb;loading.cb=null;try{if(cb)cb()}catch(e){S='menu'}}drawLoading()}
     else if(S==='splash')splash();
     else if(S==='menu')menu();
+    else if(S==='patch')patchNotes();
     else if(S==='settings')settings_screen();
     else if(S==='ride')ride(dt);
     else if(S==='stunt')stunt(dt);
@@ -1085,6 +1211,7 @@ function loop(now){
     else if(S==='shop')shop();
     else if(S==='garage')garage();
     else if(S==='workshop')workshop();
+    else if(S==='workshop2')workshop2();
     else if(S==='dress')dress();
     else if(S==='assemble')assemble(dt);
     else menu();

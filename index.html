@@ -53,11 +53,39 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 }
 #warn-btn-yes { background: #2a7; color: #fff; }
 #warn-btn-no { background: #e33; color: #fff; }
+
+/* Окно ввода ника */
+#nick-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(10, 15, 30, 0.95);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  z-index: 1002;
+}
+#nick-overlay .title { color: #fc0; font-size: 28px; font-family: sans-serif; margin-bottom: 10px; font-weight: bold; }
+#nick-overlay .subtitle { color: #ccc; font-size: 14px; font-family: sans-serif; margin-bottom: 25px; text-align: center; padding: 0 20px;}
+#nick-overlay input {
+  width: 80%; max-width: 400px; padding: 15px; font-size: 20px; text-align: center;
+  font-family: "Courier New", monospace; border: 2px solid #fc0; background: #111; color: #fff;
+  border-radius: 8px; outline: none; margin-bottom: 20px;
+}
+#nick-overlay button {
+  padding: 15px 40px; font-size: 20px; font-weight: bold;
+  font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer;
+  background: #2a7; color: #fff;
+}
 </style>
 <!-- ПОДКЛЮЧАЕМ БИБЛИОТЕКУ ДЛЯ СЕРВЕРА -->
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head><body>
 <div id="game-wrap"><canvas id=c></canvas></div>
+
+<!-- Окно ввода ника -->
+<div id="nick-overlay">
+  <div class="title">ДОБРО ПОЖАЛОВАТЬ!</div>
+  <div class="subtitle">Придумай свой никнейм для игры в мультиплеере.<br>Мат и оскорбления запрещены!</div>
+  <input type="text" id="nick-input" autocomplete="off" spellcheck="false" placeholder="Твой ник..." maxlength="15">
+  <button onclick="submitNick()">ПОДТВЕРДИТЬ</button>
+</div>
 
 <div id="code-overlay">
   <div style="color:#fff; font-family:monospace; margin-bottom:15px; font-size:18px;">ВВЕДИТЕ КОД</div>
@@ -102,9 +130,51 @@ socket.on('opponentMove', (data) => {
         y: data.y, 
         a: data.a || 0,
         air: data.air || 0,
+        nick: data.nick || 'Игрок',
         lastSeen: Date.now() 
     };
 });
+
+// ===== СИСТЕМА НИКНЕЙМОВ =====
+let myNick = localStorage.getItem('mtb_nick') || '';
+
+const BAD_WORDS = ['хуй', 'хуя', 'пизд', 'бля', 'еб', 'ёб', 'сук', 'муд', 'говн', 'залуп', 'дроч', 'fuck', 'shit', 'bitch', 'cunt', 'asshole'];
+
+function submitNick() {
+    let inputVal = document.getElementById('nick-input').value.trim();
+    if (inputVal.length < 3) {
+        alert("Никнейм должен содержать хотя бы 3 буквы!");
+        return;
+    }
+    if (inputVal.length > 15) {
+        alert("Никнейм не должен превышать 15 символов!");
+        return;
+    }
+
+    let cleanVal = inputVal.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
+
+    for (let word of BAD_WORDS) {
+        if (cleanVal.includes(word)) {
+            alert("Ваш никнейм содержит недопустимые (матерные) слова! Придумайте другой.");
+            return;
+        }
+    }
+
+    myNick = inputVal;
+    localStorage.setItem('mtb_nick', myNick);
+    document.getElementById('nick-overlay').style.display = 'none';
+    
+    if(isDevMode) {
+        myNick = 'Николай';
+        localStorage.setItem('mtb_nick', myNick);
+    }
+}
+
+if (myNick) {
+    document.getElementById('nick-overlay').style.display = 'none';
+} else {
+    document.getElementById('nick-overlay').style.display = 'flex';
+}
 
 // ===== РЕСАЙЗ =====
 let W=800,H=500,isRotated=false;
@@ -133,10 +203,9 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ (СБАЛАНСИРОВАННАЯ ЭКОНОМИКА) =====
+// ===== ДАННЫЕ =====
 const RD=[{n:'Даша',t:'Обычный',s:5,col:'#4af'},{n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a'},{n:'Макар',t:'Легендарный',s:9,col:'#fc0'}];
 
-// Цены на велики: от 0 до 100 000. Чтобы на средний накопить за 15 минут игры.
 const BK=[
   {n:'Giant Glory',p:0,sp:0,c:'#1d8a73'},
   {n:'Trek Session',p:2000,sp:1,c:'#1a1a1a'},
@@ -158,7 +227,6 @@ const GEO=[{n:'Короткая',sp:0,fl:.15},{n:'Средняя',sp:.05,fl:.05}
 const SC=1.5,GL=22;
 const FOX_RED='#e10600',FOX_WHITE='#eee';
 
-// Детали: топовые стоят дорого, но не 40к
 const PARTS={
   fork:[{n:'Жёсткая',price:0,col:'#888',travel:0,sp:0},{n:'RockShox',price:3000,col:'#c0c',travel:20,sp:.05},{n:'Fox 35',price:8000,col:'#fa0',travel:35,sp:.1},{n:'Fox 40',price:15000,col:'#f60',travel:40,sp:.15}],
   rim:[{n:'Стальной',price:0,col:'#888',sp:0},{n:'Алюминиевый',price:1500,col:'#ccc',sp:.05},{n:'Карбоновый',price:4000,col:'#1a1a1a',sp:.12}],
@@ -219,14 +287,13 @@ if(d.isDevMode)isDevMode=d.isDevMode;
 if(d.usedCodes)usedCodes=d.usedCodes;
 if(d.devCodeUsed)devCodeUsed=d.devCodeUsed;
 if(d.asm2)asm2=d.asm2;
-// Защита от битых данных
 if (!BK[B]) B = 0;
 if (!PARTS[garageTab]) garageTab = 'fork';
 }catch(e){}}
 loadData();
 addEventListener('pagehide',save);addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 
-// ===== СИСТЕМА КОДОВ (С ЗАЩИТОЙ) =====
+// ===== СИСТЕМА КОДОВ =====
 function openCodeUI() {
   document.getElementById('code-overlay').style.display = 'flex';
   document.getElementById('code-input').value = '';
@@ -241,7 +308,10 @@ function submitCode() {
   
   if (input === 'MTB-DEV-99' || input === 'MTB-TEST-01' || input === 'MTB-2016-12') {
     let conf = prompt("Введите секретный код подтверждения разработчика:");
-    if (conf && (conf.trim().toUpperCase() === 'DF 2016' || conf.trim().toUpperCase() === 'DF2016')) {
+    
+    // ОБНОВЛЕННЫЕ КОДЫ ПОДТВЕРЖДЕНИЯ
+    let cleanConf = conf ? conf.replace(/\s/g, '').toUpperCase() : '';
+    if (cleanConf === 'DF2017' || cleanConf === 'DF2016' || cleanConf === 'DF99') {
         if (devCodeUsed) {
           pendingDevCode = input;
           document.getElementById('warn-overlay').style.display = 'flex';
@@ -292,11 +362,13 @@ function activateDevCode(code) {
   ownedParts = { fork: [1,1,1,1], rim: [1,1,1], tire: [1,1,1,1], brake: [1,1,1], drive: [1,1,1], cockpit: [1,1,1] };
   isDevMode = true;
   devCodeUsed = true;
+  myNick = 'Николай'; // АВТО-НИК РАЗРАБОТЧИКА
+  localStorage.setItem('mtb_nick', myNick);
   save();
-  alert('КОД РАЗРАБОТЧИКА АКТИВИРОВАН!\nВсе функции и байки разблокированы.');
+  alert('КОД РАЗРАБОТЧИКА АКТИВИРОВАН!\nВсе функции и байки разблокированы.\nВаш ник изменен на "Николай".');
 }
 
-// ===== ВВОД (ИСПРАВЛЕН ТАЧ) =====
+// ===== ВВОД =====
 function transformTouch(clientX,clientY){
   const s=settings.scale||1;
   let gx,gy;
@@ -331,7 +403,6 @@ function txt(t,x,y,s,col,al){g.fillStyle=col||'#fff';g.font='bold '+s+'px sans-s
 function backBtn(target){btn('← НАЗАД',10,10,Math.min(120,W*0.25),44,()=>S=target,'#b33')}
 function partsStats(){let sp=0,grip=0;for(const k of['fork','rim','tire','brake','drive','cockpit']){const p=PARTS[k][build[k]];if(p&&p.sp)sp+=p.sp;if(p&&p.grip)grip+=p.grip}return{sp,grip}}
 
-// УЛУЧШЕННЫЙ BIKE CONFIG (ЗАЩИТА ОТ ВЫЛЕТОВ)
 function bikeConfig(){
   let fCol = '#1d8a73';
   try {
@@ -465,7 +536,16 @@ function drawBike(k,wr,rid,cfg,trk,isBraking){
   g.lineWidth=4;g.strokeStyle='#222';g.beginPath();g.moveTo(fTopX,fTopY);g.lineTo(fTopX-2,fTopY-5);g.stroke();
   g.lineWidth=3;g.strokeStyle='#111';g.beginPath();g.moveTo(fTopX-8,fTopY-6);g.lineTo(fTopX+4,fTopY-4);g.stroke();
 
-  g.fillStyle='#111';g.beginPath();g.ellipse(-14,-21,10,4,0,0,7);g.fill();
+  // ИСПРАВЛЕНО (arc вместо ellipse)
+  g.fillStyle='#111';
+  g.save();
+  g.translate(-14,-21);
+  g.scale(1, 0.4);
+  g.beginPath();
+  g.arc(0, 0, 10, 0, Math.PI*2);
+  g.fill();
+  g.restore();
+
   g.lineWidth=2;g.strokeStyle='#666';g.beginPath();g.moveTo(-px,8-py);g.lineTo(px,8+py);g.stroke();
 
   if(isBraking && P.vx > 2){
@@ -534,6 +614,11 @@ function settings_screen(){
   txt('СЧЁТЧИК FPS', col1, startY+lineH*2+bh/2+5, Math.min(18,W*.032), '#fff');
   btn(settings.showFps?'ВКЛ':'ВЫКЛ', col2, startY+lineH*2, Math.min(140,W*.15), bh, ()=>{settings.showFps=!settings.showFps;saveSettings()}, settings.showFps?'#2a7':'#444');
 
+  btn('СМЕНИТЬ НИК',W/2-Math.min(280,W*.5)/2, H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{
+      document.getElementById('nick-input').value = myNick;
+      document.getElementById('nick-overlay').style.display = 'flex';
+  },'#357');
+
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.85,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
 
@@ -547,23 +632,24 @@ function patchNotes(){
   const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   
   line('ЧТО НОВОГО:', '#0f0', 18);
-  line('- МАСТЕРСКАЯ 2.0: 20 этапов сборки велика!', '#fff');
-  line('- Собранный велик: макс. скорость 150 км/ч.', '#fff');
-  line('- Внимание: поездка на кастоме стоит 10 МЕТ.', '#fc0');
-  line('- НОВАЯ ЭКОНОМИКА: цены сбалансированы.', '#0f0');
-  line('  (На новый байк надо ~15 минут игры)', '#fff');
-  line('- Шторка миссий стала меньше и не мешает.', '#fff');
+  line('- СИСТЕМА НИКНЕЙМОВ (с фильтром матов)!', '#fc0');
+  line('- В мультиплеере видно ники игроков.', '#fff');
+  line('- Ник разработчика: "Николай".', '#fff');
+  line('- МАСТЕРСКАЯ 2.0: 20 этапов сборки.', '#fff');
+  line('- НОВАЯ ЭКОНОМИКА (на байк ~15 минут).', '#0f0');
   y += 15;
   line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
-  line('- ПОЧИНЕН ГАРАЖ НА APK (теперь не вылетает).', '#0f0');
-  line('- Починены трюки (теперь считаются и дают деньги).', '#fff');
-  line('- Миссии засчитываются на ВСЕХ трассах.', '#fff');
+  line('- ПОЧИНЕН ГАРАЖ НА APK.', '#0f0');
+  line('- Починены трюки.', '#fff');
 }
 
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
   txt('MTB FREERIDE',W/2,H*.07,Math.min(30,W*.055),'#fc0','center');
   txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.14,Math.min(14,W*.025),'#fff','center');
+  
+  txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left');
+
   const cardW=Math.min(120,(W-60)/3-8),cardH=Math.min(100,H*.19);
   const startX=(W-cardW*3-16)/2,cardY=H*.2;
   RD.forEach((r,i)=>{const x=startX+i*(cardW+8),y=cardY;
@@ -849,7 +935,7 @@ function rb(dt){
         say('РАЗБЛОКИРОВАНА ЭКИПИРОВКА RED BULL!');
       }
       if(rbLevel<5)rbLevel++;
-      $+=1500*rbLevel; // Снижено
+      $+=1500*rbLevel;
       save()
     }
     const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
@@ -903,7 +989,7 @@ function rb(dt){
   }
 }
 
-// ===== ДРОПЫ (СНИЖЕНЫ ЦЕНЫ) =====
+// ===== ДРОПЫ =====
 function drops(){
   g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H);
   backBtn('menu');
@@ -921,7 +1007,6 @@ function rideDrop(dt){
     else if(dropState.phase==='air'){P.vy+=600*dt;P.y+=P.vy*dt;P.x+=200*dt;
       const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(jumpCX,jumpCY,btnR)?1:0);P.a+=r*7*dt;P.tot+=r*7*dt;
       if(P.y>=dropHeight){P.y=dropHeight;P.vy=0;dropState.phase='landed';const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));if(Math.abs(d)<1.5){const el=(performance.now()-dropStartTime)/1000;const fp=Math.round(Math.abs(P.tot)/6.2832);
-        // СНИЖЕНИЕ НАГРАД ЗА ДРОПЫ
         dropPoints = Math.floor((dropMode.h * 10) + (el * 5) + (fp * 50));
         $+=dropPoints;
         if(dropPoints>dropBest)dropBest=dropPoints;save()}else cr=1;setTimeout(()=>{dropDone=true},800)}
@@ -950,7 +1035,7 @@ function rideDrop(dt){
   }
 }
 
-// ===== ЕЗДА (С МУЛЬТИПЛЕЕРОМ) =====
+// ===== ЕЗДА (С МУЛЬТИПЛЕЕРОМ И НИКАМИ) =====
 function ride(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
@@ -993,7 +1078,6 @@ function ride(dt){
       if(P.y>=gy&&P.vy>0){
         P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);
         if(Math.abs(d-sl)<1.5){
-          // СНИЖЕНИЕ НАГРАД ЗА ТРЮКИ
           if(fl>0){const money=fl*(r>0?30:80);$+=money;say(fl+'x +$'+money);missions.flip5.prog+=fl}
         }
         else{
@@ -1026,9 +1110,10 @@ function ride(dt){
     checkMissions();
   }else{cr+=fs;cv*=.93;rv*=.9;P.x+=cv*fs;rX+=rv*fs}
   
+  // ОТПРАВЛЯЕМ КООРДИНАТЫ И НИК
   if(Date.now() - lastNetEmit > 50 && socket.connected) {
       let relY = P.y - T(P.x);
-      socket.emit('playerMove', { x: P.x, y: relY, a: P.a, air: P.air });
+      socket.emit('playerMove', { x: P.x, y: relY, a: P.a, air: P.air, nick: myNick });
       lastNetEmit = Date.now();
   }
 
@@ -1037,6 +1122,7 @@ function ride(dt){
   ms.forEach(m=>{const sx=m-cx;if(sx<-40||sx>W+40)return;g.fillStyle='#999';g.fillRect(sx-10,T(m)-20,20,20);g.fillStyle='#ddd';g.fillRect(sx-6,T(m)-17,8,7)});
   rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});
 
+  // РИСУЕМ ДРУГИХ ИГРОКОВ С ИХ НИКАМИ
   for(let id in opponents){
       let opp = opponents[id];
       if(Date.now() - opp.lastSeen > 5000) { delete opponents[id]; continue; }
@@ -1051,7 +1137,8 @@ function ride(dt){
           let ghostCfg = {frameCol:'#e33', rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'};
           drawBike(0, opp.x, true, ghostCfg, {}, false);
           g.restore();
-          txt('ИГРОК', oppSX, oppY - 60, 10, '#fff', 'center');
+          // Рисуем ник над байком
+          txt(opp.nick, oppSX, oppY - 65, 12, '#fff', 'center');
       }
   }
 
@@ -1134,7 +1221,15 @@ function garage(){
   
   const previewCX=W*0.75,previewCY=H*.5;
   try {
-    g.fillStyle='rgba(255,140,0,0.08)';g.beginPath();g.ellipse(previewCX,previewCY+60,140,20,0,7);g.fill();
+    g.fillStyle='rgba(255,140,0,0.08)';
+    g.save();
+    g.translate(previewCX, previewCY+60);
+    g.scale(1, 0.15); 
+    g.beginPath();
+    g.arc(0, 0, 140, 0, Math.PI*2);
+    g.fill();
+    g.restore();
+
     const grd=g.createRadialGradient(previewCX,previewCY,20,previewCX,previewCY,150);
     grd.addColorStop(0,'rgba(255,200,80,0.15)');grd.addColorStop(1,'rgba(255,200,80,0)');
     g.fillStyle=grd;g.fillRect(previewCX-150,previewCY-150,300,300);
@@ -1147,7 +1242,7 @@ function garage(){
   tabs.forEach((k,i)=>{const x=10+i*(tabW+3),y=90;const a=garageTab===k;g.fillStyle=a?'#e70':'#333';g.fillRect(x,y,tabW,26);g.strokeStyle=a?'#fc0':'#555';g.lineWidth=1;g.strokeRect(x,y,tabW,26);g.fillStyle='#fff';g.font='bold 10px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(CATNAMES[k],x+tabW/2,y+13);btns.push({x,y,w:tabW,h:26,f:()=>garageTab=k})});
   
   const items=PARTS[garageTab];
-  if (!items) return; // Защита
+  if (!items) return;
   
   const colW=Math.min(150,(W*0.45)/2-5);const rowH=50;
   items.forEach((it,i)=>{
@@ -1155,7 +1250,6 @@ function garage(){
     const x=10+col*(colW+10), y=130+row*(rowH+6);
     if(y+rowH>H-50)return;
     
-    // Защита от несуществующих массивов
     if (!ownedParts[garageTab]) ownedParts[garageTab] = [1,0,0,0,0];
     
     const isOwned = ownedParts[garageTab][i] ? 1 : 0;

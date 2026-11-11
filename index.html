@@ -815,7 +815,6 @@ function ride(dt){
       const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0);
       P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());
       
-      // ФИКС ТРЮКОВ: уменьшаем таймер трюка
       if(trick.name){
         trick.t -= dt;
         if(trick.t <= 0) trick.t = 0;
@@ -824,7 +823,6 @@ function ride(dt){
       if(P.y>=gy&&P.vy>0){
         P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);
         if(Math.abs(d-sl)<1.5){
-          // Убрал ограничение tr===3, теперь флипы считаются везде
           if(fl>0){const money=fl*(r>0?50:200);$+=money;say(fl+'x +$'+money);missions.flip5.prog+=fl}
         }
         else{
@@ -845,7 +843,6 @@ function ride(dt){
           const earn=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT));
           if(earn>0){
             $+=earn;
-            // Убрал ограничение tr===3, теперь трюки считаются везде
             missions.trick10.prog++;
             say(trick.name+' +$'+earn);
           }
@@ -855,11 +852,9 @@ function ride(dt){
       }
     }
     for(let i=ms.length;i--;){if(Math.abs(ms[i]-P.x)<40&&P.y>T(ms[i])-130){ms.splice(i,1);M++;missions.metal20.prog++;say('+1 металл')}else if(ms[i]<P.x-200)ms.splice(i,1)}
-    // Теперь миссии проверяются на любой трассе
     checkMissions();
   }else{cr+=fs;cv*=.93;rv*=.9;P.x+=cv*fs;rX+=rv*fs}
   
-  // Отправляем координаты на сервер
   if(Date.now() - lastNetEmit > 50 && socket.connected) {
       let relY = P.y - T(P.x);
       socket.emit('playerMove', { x: P.x, y: relY, a: P.a, air: P.air });
@@ -871,7 +866,6 @@ function ride(dt){
   ms.forEach(m=>{const sx=m-cx;if(sx<-40||sx>W+40)return;g.fillStyle='#999';g.fillRect(sx-10,T(m)-20,20,20);g.fillStyle='#ddd';g.fillRect(sx-6,T(m)-17,8,7)});
   rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});
 
-  // Рисуем других игроков
   for(let id in opponents){
       let opp = opponents[id];
       if(Date.now() - opp.lastSeen > 5000) { delete opponents[id]; continue; }
@@ -893,7 +887,6 @@ function ride(dt){
   if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isBraking);g.restore();
     if(trick.name){
         txt(trick.name,W*.35,P.y-120,20,trick.col,'center');
-        // Полоска выполнения трюка
         const barW = 100, barH = 6;
         const bx = W*.35 - barW/2, by = P.y - 100;
         g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(bx,by,barW,barH);
@@ -914,12 +907,10 @@ function ride(dt){
     txt('❤️x'+rbLives, W/2, 50, 16, '#e10600', 'center');
   }
 
-  // Индикатор мультиплеера
   txt(socket.connected ? '🟢 В СЕТИ' : '🔴 ОФЛАЙН', W-15, 26, 12, socket.connected ? '#0f0' : '#f55', 'right');
 
   if(mt>0){mt--;txt(msg,W/2,90,15,'#a00','center')}
   
-  // Рисуем миссии всегда, а не только на Байк-парке
   if(!cr)drawMissions();
 
   if(!cr){
@@ -934,7 +925,25 @@ function ride(dt){
     btn('МЕНЮ',W/2+10,H/2+20,Math.min(180,W*.35),50,()=>{best=Math.max(best,Math.floor(P.x/30));save();S='menu'},'#555')
   }
 }
-function drawMissions(){g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,140);txt('МИССИИ',10,20,14,'#fc0');const list=[{k:'flip5',label:'5 флипов'},{k:'trick10',label:'10 трюков'},{k:'dist1000',label:'1000м'},{k:'metal20',label:'20 металла'}];list.forEach((m,i)=>{const msn=missions[m.k];const y=36+i*26;txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need,10,y,11,msn.done?'#0f0':'#fff')})}
+
+// ИЗМЕНЕННАЯ ФУНКЦИЯ МИССИЙ (теперь маленькая и не мешает)
+function drawMissions(){
+  g.fillStyle='rgba(0,0,0,0.6)'; // Фон чуть прозрачный
+  g.fillRect(10, 85, 155, 85);   // Маленький квадрат слева
+  txt('МИССИИ', 15, 100, 11, '#fc0');
+  const list=[
+    {k:'flip5',label:'5 флипов'},
+    {k:'trick10',label:'10 трюков'},
+    {k:'dist1000',label:'1000м'},
+    {k:'metal20',label:'20 мет.'}
+  ];
+  list.forEach((m,i)=>{
+    const msn=missions[m.k];
+    const y=115+i*13; // Уменьшили расстояние
+    txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need, 15, y, 9, msn.done?'#0f0':'#fff');
+  });
+}
+
 function checkMissions(){
     if(!missions.flip5.done&&missions.flip5.prog>=5){missions.flip5.done=true;unlocked.foxHelmet=true;say('МИССИЯ ВЫПОЛНЕНА: FOX ШЛЕМ!');save();}
     if(!missions.trick10.done&&missions.trick10.prog>=10){missions.trick10.done=true;unlocked.foxChest=true;say('МИССИЯ ВЫПОЛНЕНА: FOX ГРУДЬ!');save();}
@@ -1039,7 +1048,6 @@ function dress(){
   txt(unlocked.foxChest?(gear.chest?'V ':'')+'FOX ГРУДЬ':'X FOX ГРУДЬ',fx+10,fy+64,13,'#fff');
   if(unlocked.foxChest)btns.push({x:fx,y:fy+42,w:fW,h:36,f:()=>{gear.chest=!gear.chest; if(gear.chest) gear.rbChest=false; save()}});
 
-  // Red Bull Экипировка
   g.fillStyle=unlocked.rbHelmet?'#0033cc':'#444';g.fillRect(fx,fy+84,fW,36);
   txt(unlocked.rbHelmet?(gear.rbHelmet?'V ':'')+'RED BULL ШЛЕМ':'X RED BULL ШЛЕМ',fx+10,fy+106,13,'#fff');
   if(unlocked.rbHelmet)btns.push({x:fx,y:fy+84,w:fW,h:36,f:()=>{gear.rbHelmet=!gear.rbHelmet; if(gear.rbHelmet) gear.fox=false; save()}});

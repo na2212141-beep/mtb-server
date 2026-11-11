@@ -100,6 +100,8 @@ socket.on('opponentMove', (data) => {
     opponents[data.id] = { 
         x: data.x, 
         y: data.y, 
+        a: data.a || 0,
+        air: data.air || 0,
         lastSeen: Date.now() 
     };
 });
@@ -164,8 +166,8 @@ const ASM_LEVELS=[{bolts:4,parts:['fork','wheel1','wheel2'],reward:500,desc:'Б�
 
 // ===== СОСТОЯНИЕ =====
 let S='splash',R=0,B=0,$=0,M=0,fr=0,own=BK.map((b,i)=>+!i),P={x:0},ms=[],nm=0,msg='',mt=0,btns=[],ptr={},sus=0;
-let gear={helmet:'#fc0',jersey:'#e33',pants:'#222',chest:false,fox:false};
-let unlocked={foxHelmet:false,foxChest:false,foxPants:false};
+let gear={helmet:'#fc0',jersey:'#e33',pants:'#222',chest:false,fox:false,rbHelmet:false,rbChest:false};
+let unlocked={foxHelmet:false,foxChest:false,foxPants:false,rbHelmet:false,rbChest:false};
 let missions={flip5:{done:false,prog:0,need:5},trick10:{done:false,prog:0,need:10},dist1000:{done:false,prog:0,need:1000},metal20:{done:false,prog:0,need:20}};
 let cf=null,useCf=false,fd=[0,1,0],pg=0,tr=0,rp=[],nr=1000,cr=0,cv=0,rv=0,rX=0,best=0;
 let build={fork:0,rim:0,tire:0,brake:0,drive:0,cockpit:0};
@@ -182,6 +184,7 @@ let usedCodes = [];
 let devCodeUsed = false;
 let pendingDevCode = '';
 let lastNetEmit = 0;
+let rbLives = 5; // Жизни Red Bull
 
 const SK='mtb_apk_final_multiplayer';
 function save(){try{localStorage.setItem(SK,JSON.stringify({$,M,B,own,fr,best,gear,unlocked,missions,cf,useCf,tr,R,build,ownedParts,dropBest,tutorialDone,stuntBest,rbLevel,asmLevel,isDevMode,usedCodes,devCodeUsed}))}catch(e){}}
@@ -324,7 +327,10 @@ function drawRider(ca,trk){
   g.lineWidth=3;g.strokeStyle='#fff';g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]-1,sh[1]+4);g.stroke();
   g.fillStyle='#fff';g.font='bold 7px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('7',(hip[0]+sh[0])/2+1,(hip[1]+sh[1])/2);
   
-  if(gear.chest){
+  if(gear.rbChest && unlocked.rbChest){
+    g.lineWidth=14;g.strokeStyle='#c0c0c0';g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]+1,sh[1]+4);g.stroke();
+    g.lineWidth=3;g.strokeStyle='#0033cc';g.beginPath();g.moveTo(sh[0]-3,sh[1]+7);g.lineTo(hip[0]+3,hip[1]-2);g.stroke();
+  } else if(gear.chest){
     g.lineWidth=14;g.strokeStyle=FOX_WHITE;g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]+1,sh[1]+4);g.stroke();
     g.lineWidth=2;g.strokeStyle=FOX_RED;g.beginPath();g.moveTo(sh[0]-3,sh[1]+7);g.lineTo(hip[0]+3,hip[1]-2);g.stroke();
   }
@@ -341,7 +347,11 @@ function drawRider(ca,trk){
   g.strokeStyle='#e8b48a';g.lineWidth=5;g.beginPath();g.moveTo(sh[0],sh[1]);g.lineTo(4,-41);g.stroke();
   g.fillStyle='#e8b48a';g.beginPath();g.arc(5,-45,7,0,7);g.fill();
   
-  if(unlocked.foxHelmet&&gear.fox){
+  if(gear.rbHelmet && unlocked.rbHelmet){
+    g.fillStyle='#0033cc';g.beginPath();g.arc(5,-46,10,Math.PI*.85,Math.PI*2.15);g.fill();
+    g.fillStyle='#fff';g.fillRect(8,-48,8,5);
+    g.fillStyle='#e10600';g.beginPath();g.moveTo(1,-50);g.lineTo(-4,-55);g.lineTo(6,-55);g.fill();
+  } else if(unlocked.foxHelmet&&gear.fox){
     g.fillStyle=FOX_RED;g.beginPath();g.arc(5,-46,10,Math.PI*.85,Math.PI*2.15);g.fill();
     g.fillStyle='#111';g.fillRect(8,-48,8,5);
     g.fillStyle='#fff';g.beginPath();g.moveTo(1,-50);g.lineTo(-4,-55);g.lineTo(6,-55);g.fill();
@@ -658,7 +668,7 @@ function rbMenu(){
     const un=i===1||i<=rbLevel;const y=H*.18+(i-1)*Math.min(60,H*.12);
     if(!un){g.fillStyle='#333';g.fillRect(20,y,W-40,48);txt('ЗАКРЫТО',100,y+30,14,'#777')}
     else{g.fillStyle='#d90000';g.fillRect(20,y,W-40,48);txt('УРОВЕНЬ '+i+(i===1?' (ЛЁГКИЙ)':''),100,y+20,15,'#fff');txt('Дистанция: '+i*350+'м',100,y+38,12,'#ffcccc');
-      btns.push({x:20,y,w:W-40,h:48,f:()=>{rbLevel=i;rbDist=0;rbTarget=i*350;rbFinished=false;cr=0;P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=0;rp=[];nr=1000;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};startLoading(()=>{S='rb'})}})
+      btns.push({x:20,y,w:W-40,h:48,f:()=>{rbLevel=i;rbDist=0;rbTarget=i*350;rbFinished=false;cr=0;P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=0;rp=[];nr=1000;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};rbLives=5;startLoading(()=>{S='rb'})}})
     }
   }
 }
@@ -672,13 +682,41 @@ function rb(dt){
   if(!rbFinished&&!cr){
     if(!P.air){const gas=heldCircle(gasCX,gasCY,btnR),brake=heldCircle(brakeCX,brakeCY,btnR);isBraking=brake;if(gas&&!brake)P.vx+=vmax*.025*fs;else if(brake&&!gas)P.vx-=vmax*.045*fs;else P.vx*=Math.pow(.99,fs);P.vx=Math.max(0,Math.min(vmax,P.vx))}
     P.x+=P.vx*fs;rbDist=Math.floor(P.x/10);
-    if(P.x>rbTarget*10){rbFinished=true;if(rbLevel<5)rbLevel++;$+=500*rbLevel;save()}
+    if(P.x>rbTarget*10){
+      rbFinished=true;
+      if(rbLevel===1){
+        unlocked.rbHelmet = true;
+        unlocked.rbChest = true;
+        say('РАЗБЛОКИРОВАНА ЭКИПИРОВКА RED BULL!');
+      }
+      if(rbLevel<5)rbLevel++;
+      $+=500*rbLevel;
+      save()
+    }
     const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
     rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-rbLevel*1.2;t.used=performance.now()}});
     rp=rp.filter(t=>t.x>P.x-600);
     if(!P.air){P.y+=(gy-P.y)*.35*fs;P.a=sl}
     else{P.vy+=.4*fs;P.y+=P.vy*fs;const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0);P.a+=r*7*dt;P.tot+=r*7*dt;
-      if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));if(Math.abs(d-sl)<1.5){const fl=Math.round(Math.abs(P.tot)/6.2832);if(fl>0)$+=fl*(r>0?50:200)}else{cr=1;cv=Math.max(P.vx,2)*1.1}P.tot=0}
+      if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));
+        if(Math.abs(d-sl)<1.5){
+          const fl=Math.round(Math.abs(P.tot)/6.2832);
+          if(fl>0)$+=fl*(r>0?50:200)
+        }else{
+          let saved = false;
+          if ((gear.rbHelmet && unlocked.rbHelmet) && (gear.rbChest && unlocked.rbChest) && rbLives > 0) {
+              rbLives--;
+              say('RED BULL СПАС! ЖИЗНЕЙ: ' + rbLives);
+              saved = true;
+          }
+          if (!saved) {
+              cr=1;cv=Math.max(P.vx,2)*1.1;
+          } else {
+              P.a = sl; P.vx *= 0.5; P.y = gy; P.tot = 0;
+          }
+        }
+        P.tot=0;
+      }
     }
   }else if(cr){cr+=fs;cv*=.93;P.x+=cv*fs}
   const cx=P.x-W*.35;
@@ -690,6 +728,11 @@ function rb(dt){
   else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore()}
   txt('LEVEL '+rbLevel,15,26,18,'#d90000');
   txt('Дист: '+rbDist+'/'+rbTarget+'м',15,48,14,'#fff');
+  
+  if(gear.rbHelmet && unlocked.rbHelmet && gear.rbChest && unlocked.rbChest && rbLives > 0){
+    txt('❤️x'+rbLives, W/2, 26, 16, '#e10600', 'center');
+  }
+
   if(!cr&&!rbFinished){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true)}
@@ -766,22 +809,60 @@ function ride(dt){
     }
     P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
     rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;$+=50;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);
-    if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl;$+=P.vx*.01*fs;if(tr===3)missions.dist1000.prog=Math.floor(P.x/30)}
-    else{P.vy+=.4*fs;P.y+=P.vy*fs;const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0);P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());
-      if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);
-        if(Math.abs(d-sl)<1.5){if(fl>0){const money=fl*(r>0?50:200);$+=money;say(fl+'x +$'+money);if(tr===3)missions.flip5.prog+=fl}}
-        else{cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30;best=Math.max(best,Math.floor(P.x/30))}
-        if(trick.name){const earn=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT));if(earn>0){$+=earn;if(tr===3)missions.trick10.prog++;say(trick.name+' +$'+earn)}trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}}
+    if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl;$+=P.vx*.01*fs;missions.dist1000.prog=Math.floor(P.x/30)}
+    else{
+      P.vy+=.4*fs;P.y+=P.vy*fs;
+      const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0);
+      P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());
+      
+      // ФИКС ТРЮКОВ: уменьшаем таймер трюка
+      if(trick.name){
+        trick.t -= dt;
+        if(trick.t <= 0) trick.t = 0;
+      }
+
+      if(P.y>=gy&&P.vy>0){
+        P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);
+        if(Math.abs(d-sl)<1.5){
+          // Убрал ограничение tr===3, теперь флипы считаются везде
+          if(fl>0){const money=fl*(r>0?50:200);$+=money;say(fl+'x +$'+money);missions.flip5.prog+=fl}
+        }
+        else{
+          let saved = false;
+          if ((gear.rbHelmet && unlocked.rbHelmet) && (gear.rbChest && unlocked.rbChest) && rbLives > 0) {
+              rbLives--;
+              say('RED BULL СПАС! ЖИЗНЕЙ: ' + rbLives);
+              saved = true;
+          }
+          if (!saved) {
+              cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30;best=Math.max(best,Math.floor(P.x/30));
+          } else {
+              P.a = sl; P.vx *= 0.5; P.y = gy; P.tot = 0;
+              trick = {name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};
+          }
+        }
+        if(trick.name){
+          const earn=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT));
+          if(earn>0){
+            $+=earn;
+            // Убрал ограничение tr===3, теперь трюки считаются везде
+            missions.trick10.prog++;
+            say(trick.name+' +$'+earn);
+          }
+          trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};
+        }
         P.tot=0;
       }
     }
-    for(let i=ms.length;i--;){if(Math.abs(ms[i]-P.x)<40&&P.y>T(ms[i])-130){ms.splice(i,1);M++;if(tr===3)missions.metal20.prog++;say('+1 металл')}else if(ms[i]<P.x-200)ms.splice(i,1)}
-    if(tr===3)checkMissions();
+    for(let i=ms.length;i--;){if(Math.abs(ms[i]-P.x)<40&&P.y>T(ms[i])-130){ms.splice(i,1);M++;missions.metal20.prog++;say('+1 металл')}else if(ms[i]<P.x-200)ms.splice(i,1)}
+    // Теперь миссии проверяются на любой трассе
+    checkMissions();
   }else{cr+=fs;cv*=.93;rv*=.9;P.x+=cv*fs;rX+=rv*fs}
   
-  // Отправляем наши координаты на сервер
+  // Отправляем координаты на сервер
   if(Date.now() - lastNetEmit > 50 && socket.connected) {
-      socket.emit('playerMove', { x: P.x, y: P.y });
+      let relY = P.y - T(P.x);
+      socket.emit('playerMove', { x: P.x, y: relY, a: P.a, air: P.air });
       lastNetEmit = Date.now();
   }
 
@@ -790,7 +871,7 @@ function ride(dt){
   ms.forEach(m=>{const sx=m-cx;if(sx<-40||sx>W+40)return;g.fillStyle='#999';g.fillRect(sx-10,T(m)-20,20,20);g.fillStyle='#ddd';g.fillRect(sx-6,T(m)-17,8,7)});
   rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});
 
-  // Рисуем других игроков (призраков)
+  // Рисуем других игроков
   for(let id in opponents){
       let opp = opponents[id];
       if(Date.now() - opp.lastSeen > 5000) { delete opponents[id]; continue; }
@@ -798,17 +879,30 @@ function ride(dt){
       let oppSX = opp.x - cx;
       if(oppSX > -100 && oppSX < W + 100){
           g.save();
-          g.translate(oppSX, opp.y);
+          let oppY = T(opp.x) + opp.y;
+          g.translate(oppSX, oppY);
+          g.rotate(opp.a || 0);
           g.scale(SC, SC);
           let ghostCfg = {frameCol:'#e33', rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'};
           drawBike(0, opp.x, true, ghostCfg, {}, false);
           g.restore();
-          txt('ИГРОК', oppSX, opp.y - 60, 10, '#fff', 'center');
+          txt('ИГРОК', oppSX, oppY - 60, 10, '#fff', 'center');
       }
   }
 
   if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isBraking);g.restore();
-    if(trick.name){txt(trick.name,W*.35,P.y-120,20,trick.col,'center')}}
+    if(trick.name){
+        txt(trick.name,W*.35,P.y-120,20,trick.col,'center');
+        // Полоска выполнения трюка
+        const barW = 100, barH = 6;
+        const bx = W*.35 - barW/2, by = P.y - 100;
+        g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(bx,by,barW,barH);
+        g.fillStyle=trick.col;
+        const pct = Math.max(0, Math.min(1, 1 - (trick.t / trick.maxT)));
+        g.fillRect(bx, by, barW * pct, barH);
+        g.strokeStyle='#fff'; g.lineWidth=1; g.strokeRect(bx,by,barW,barH);
+    }
+  }
   else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore();
     const s3=Math.atan2(T(rX+40)-T(rX-40),80);g.save();g.translate(rX-cx,T(rX));g.rotate(s3);g.scale(SC,SC);drawLying();g.restore()}
   txt('$'+Math.floor($),15,26,20,'#000');
@@ -816,11 +910,18 @@ function ride(dt){
   txt('⚡'+Math.round(P.vx*10)+' км/ч',15,68,13,'#124');
   txt(Math.floor(P.x/30)+' м',W/2,26,18,'#000','center');
   
+  if(gear.rbHelmet && unlocked.rbHelmet && gear.rbChest && unlocked.rbChest && rbLives > 0){
+    txt('❤️x'+rbLives, W/2, 50, 16, '#e10600', 'center');
+  }
+
   // Индикатор мультиплеера
   txt(socket.connected ? '🟢 В СЕТИ' : '🔴 ОФЛАЙН', W-15, 26, 12, socket.connected ? '#0f0' : '#f55', 'right');
 
   if(mt>0){mt--;txt(msg,W/2,90,15,'#a00','center')}
-  if(tr===3&&!cr)drawMissions();
+  
+  // Рисуем миссии всегда, а не только на Байк-парке
+  if(!cr)drawMissions();
+
   if(!cr){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
@@ -834,7 +935,12 @@ function ride(dt){
   }
 }
 function drawMissions(){g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,140);txt('МИССИИ',10,20,14,'#fc0');const list=[{k:'flip5',label:'5 флипов'},{k:'trick10',label:'10 трюков'},{k:'dist1000',label:'1000м'},{k:'metal20',label:'20 металла'}];list.forEach((m,i)=>{const msn=missions[m.k];const y=36+i*26;txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need,10,y,11,msn.done?'#0f0':'#fff')})}
-function checkMissions(){if(!missions.flip5.done&&missions.flip5.prog>=5){missions.flip5.done=true;unlocked.foxHelmet=true}if(!missions.trick10.done&&missions.trick10.prog>=10){missions.trick10.done=true;unlocked.foxChest=true}if(!missions.dist1000.done&&missions.dist1000.prog>=1000){missions.dist1000.done=true;unlocked.foxPants=true}if(!missions.metal20.done&&missions.metal20.prog>=20){missions.metal20.done=true;$+=1000}}
+function checkMissions(){
+    if(!missions.flip5.done&&missions.flip5.prog>=5){missions.flip5.done=true;unlocked.foxHelmet=true;say('МИССИЯ ВЫПОЛНЕНА: FOX ШЛЕМ!');save();}
+    if(!missions.trick10.done&&missions.trick10.prog>=10){missions.trick10.done=true;unlocked.foxChest=true;say('МИССИЯ ВЫПОЛНЕНА: FOX ГРУДЬ!');save();}
+    if(!missions.dist1000.done&&missions.dist1000.prog>=1000){missions.dist1000.done=true;unlocked.foxPants=true;say('МИССИЯ ВЫПОЛНЕНА: FOX ШТАНЫ!');save();}
+    if(!missions.metal20.done&&missions.metal20.prog>=20){missions.metal20.done=true;$+=1000;say('МИССИЯ ВЫПОЛНЕНА: +$1000!');save();}
+}
 
 // ===== ГАРАЖ =====
 function garage(){
@@ -843,7 +949,7 @@ function garage(){
   txt('$'+Math.floor($)+'  МЕТ '+M,20,70,14,'#fc0');
   
   const previewCX=W*0.75,previewCY=H*.5;
-  g.fillStyle='rgba(255,140,0,0.08)';g.beginPath();g.ellipse(previewCX,previewCY+60,140,20,0,0,7);g.fill();
+  g.fillStyle='rgba(255,140,0,0.08)';g.beginPath();g.ellipse(previewCX,previewCY+60,140,20,0,7);g.fill();
   const grd=g.createRadialGradient(previewCX,previewCY,20,previewCX,previewCY,150);
   grd.addColorStop(0,'rgba(255,200,80,0.15)');grd.addColorStop(1,'rgba(255,200,80,0)');
   g.fillStyle=grd;g.fillRect(previewCX-150,previewCY-150,300,300);
@@ -922,21 +1028,30 @@ function dress(){
   });
   
   const fx = W*0.65;
-  const fy = H - 90;
+  const fy = H - 190;
   const fW = W*0.3;
   
   g.fillStyle=unlocked.foxHelmet?'#e10600':'#444';g.fillRect(fx,fy,fW,36);
   txt(unlocked.foxHelmet?(gear.fox?'V ':'')+'FOX ШЛЕМ':'X FOX ШЛЕМ',fx+10,fy+22,13,'#fff');
-  if(unlocked.foxHelmet)btns.push({x:fx,y:fy,w:fW,h:36,f:()=>{gear.fox=!gear.fox;save()}});
+  if(unlocked.foxHelmet)btns.push({x:fx,y:fy,w:fW,h:36,f:()=>{gear.fox=!gear.fox; if(gear.fox) gear.rbHelmet=false; save()}});
   
   g.fillStyle=unlocked.foxChest?'#e10600':'#444';g.fillRect(fx,fy+42,fW,36);
   txt(unlocked.foxChest?(gear.chest?'V ':'')+'FOX ГРУДЬ':'X FOX ГРУДЬ',fx+10,fy+64,13,'#fff');
-  if(unlocked.foxChest)btns.push({x:fx,y:fy+42,w:fW,h:36,f:()=>{gear.chest=!gear.chest;save()}});
+  if(unlocked.foxChest)btns.push({x:fx,y:fy+42,w:fW,h:36,f:()=>{gear.chest=!gear.chest; if(gear.chest) gear.rbChest=false; save()}});
+
+  // Red Bull Экипировка
+  g.fillStyle=unlocked.rbHelmet?'#0033cc':'#444';g.fillRect(fx,fy+84,fW,36);
+  txt(unlocked.rbHelmet?(gear.rbHelmet?'V ':'')+'RED BULL ШЛЕМ':'X RED BULL ШЛЕМ',fx+10,fy+106,13,'#fff');
+  if(unlocked.rbHelmet)btns.push({x:fx,y:fy+84,w:fW,h:36,f:()=>{gear.rbHelmet=!gear.rbHelmet; if(gear.rbHelmet) gear.fox=false; save()}});
+
+  g.fillStyle=unlocked.rbChest?'#0033cc':'#444';g.fillRect(fx,fy+126,fW,36);
+  txt(unlocked.rbChest?(gear.rbChest?'V ':'')+'RED BULL ГРУДЬ':'X RED BULL ГРУДЬ',fx+10,fy+148,13,'#fff');
+  if(unlocked.rbChest)btns.push({x:fx,y:fy+126,w:fW,h:36,f:()=>{gear.rbChest=!gear.rbChest; if(gear.rbChest) gear.chest=false; save()}});
 }
 
 // ===== ЦИКЛ =====
 function startLoading(cb){loading.on=true;loading.p=0;loading.cb=cb}
-function start(){P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=400;rp=[];nr=1000;cr=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};S='ride'}
+function start(){P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=400;rp=[];nr=1000;cr=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};rbLives=5;S='ride'}
 
 function loop(now){
   rs();

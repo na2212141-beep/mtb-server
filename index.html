@@ -15,7 +15,6 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 #code-overlay button, #nick-overlay button, #warn-overlay button, #policy-overlay button, #text-overlay button {padding: 15px 40px; font-size: 18px; font-weight: bold;font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer; margin: 10px; color: #fff;}
 .btn-green { background: #2a7; } .btn-red { background: #e33; } .btn-blue { background: #357; }
 
-/* ЧАТ СКРЫТ ПО УМОЛЧАНИЮ */
 #chat-wrapper {position: fixed; bottom: 10px; left: 10px; z-index: 500; display: none; flex-direction: column;}
 #chat-messages {width: 250px; height: 120px; background: rgba(0,0,0,0.6); color: #fff;font-family: monospace; font-size: 12px; padding: 5px; overflow-y: hidden;border-radius: 5px 5px 0 0; display: flex; flex-direction: column; justify-content: flex-end;}
 #chat-input-area { display: flex; width: 250px; }
@@ -144,16 +143,16 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ (НОВЫЕ РАЙДЕРЫ) =====
+// ===== ДАННЫЕ (РАЗНЫЕ РАЙДЕРЫ) =====
 const RD=[
-  {n:'Даша',t:'Обычный',s:5,col:'#4af'},
-  {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a'},
-  {n:'Макар',t:'Легендарный',s:9,col:'#fc0'},
-  {n:'Соня',t:'Профи',s:8,col:'#f0f'},
-  {n:'RB Атлет',t:'Экстрим',s:10,col:'#e10600'},
-  {n:'Марк',t:'Гонщик',s:6,col:'#0f0'},
-  {n:'Аня',t:'Эксперт',s:7,col:'#ffa500'},
-  {n:'Яна',t:'Мастер',s:8,col:'#a0f'}
+  {n:'Даша',t:'Обычный',s:5,col:'#4af',g:{h:'#4af', j:'#e33', p:'#222', b:'#1d8a73'}},
+  {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a',g:{h:'#f4a', j:'#222', p:'#111', b:'#444'}},
+  {n:'Макар',t:'Легендарный',s:9,col:'#fc0',g:{h:'#fc0', j:'#0f0', p:'#333', b:'#ff00ff'}},
+  {n:'Соня',t:'Профи',s:8,col:'#f0f',g:{h:'#f0f', j:'#000', p:'#444', b:'#a0f'}},
+  {n:'RB Атлет',t:'Экстрим',s:10,col:'#e10600',g:{h:'#0033cc', j:'#e10600', p:'#222', b:'#00ffff', rb:true}},
+  {n:'Марк',t:'Гонщик',s:6,col:'#0f0',g:{h:'#0f0', j:'#fff', p:'#555', b:'#e33'}},
+  {n:'Аня',t:'Эксперт',s:7,col:'#ffa500',g:{h:'#ffa500', j:'#ccc', p:'#111', b:'#ccc'}},
+  {n:'Яна',t:'Мастер',s:8,col:'#a0f',g:{h:'#a0f', j:'#f4a', p:'#222', b:'#1a1a1a'}}
 ];
 
 const BK=[
@@ -197,6 +196,7 @@ let stuntPoints=0,stuntBest=0;
 let rbLevel=1,rbDist=0,rbTarget=350,rbFinished=false;
 let fps=0,fpsCount=0,fpsTime=0;
 let isDevMode = false, usedCodes = [], devCodeUsed = false, pendingDevCode = '', lastNetEmit = 0, rbLives = 5, asm2 = {step: 0, done: false}, superBikeUnlocked = false;
+let previewHelmet = true;
 let releaseTarget = new Date('2024-11-13T18:30:00').getTime();
 let deviceType = /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'PC');
 let dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 };
@@ -298,36 +298,51 @@ function drawStar(cx,cy,r,col){g.save();g.translate(cx,cy);g.fillStyle=col;g.beg
 
 // ===== БАЙК И РАЙДЕР =====
 function limb(hx,hy,fx,fy,l,dir,w,col){let dx=fx-hx,dy=fy-hy,d=Math.hypot(dx,dy)||1;const ux=dx/d,uy=dy/d;d=Math.min(d,2*l-.01);const a=d/2,h=Math.sqrt(Math.max(0,l*l-a*a)),kx=hx+ux*a-uy*h*dir,ky=hy+uy*a+ux*h*dir,ex=hx+ux*d,ey=hy+uy*d;g.lineWidth=w;g.strokeStyle=col;g.lineCap='round';g.beginPath();g.moveTo(hx,hy);g.lineTo(kx,ky);g.lineTo(ex,ey);g.stroke();return[ex,ey,kx,ky]}
-function drawRider(ca,trk){
-  trk=trk||{};const px=Math.cos(ca)*6,py=Math.sin(ca)*6; const jc=gear.jersey,pc=gear.pants;
+
+function drawRider(ca,trk,customGear){
+  trk=trk||{};const px=Math.cos(ca)*6,py=Math.sin(ca)*6; 
+  let cg = customGear || gear;
+  let jc = cg.jersey || cg.j, pc = cg.pants || cg.p;
+  let hc = cg.helmet || cg.h;
+  let isFox = cg.fox, isRb = cg.rb;
+  
   const prog=(trk.t>0&&trk.maxT>0)?(1-trk.t/trk.maxT):0;const ext=Math.sin(prog*Math.PI);
   let hip=[-8,-18],sh=[2,-36],hand=[11,-22];
   if(trk.name==='SUPERMAN'){hip=[-8,-18-ext*20];sh=[2-ext*35,-36-ext*10];hand=[11-ext*8,-22-ext*5]}
   if(trk.name==='NO-HANDER'){hand=[11+ext*8,-22-ext*40]}
+  
   let f2=limb(hip[0],hip[1],-px,8-py,16.5,-1,7,'#1a1a1a');
   g.lineWidth=11;g.strokeStyle=jc;g.lineCap='round';g.beginPath();g.moveTo(hip[0],hip[1]);g.lineTo(sh[0],sh[1]);g.stroke();
   g.lineWidth=3;g.strokeStyle='#fff';g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]-1,sh[1]+4);g.stroke();
   g.fillStyle='#fff';g.font='bold 7px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('7',(hip[0]+sh[0])/2+1,(hip[1]+sh[1])/2);
-  if(gear.rbChest && unlocked.rbChest){
-    g.lineWidth=14;g.strokeStyle='#c0c0c0';g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]+1,sh[1]+4);g.stroke();
-    g.lineWidth=3;g.strokeStyle='#0033cc';g.beginPath();g.moveTo(sh[0]-3,sh[1]+7);g.lineTo(hip[0]+3,hip[1]-2);g.stroke();
-  } else if(gear.chest){
+  
+  if(cg.chest && !cg.rb){
     g.lineWidth=14;g.strokeStyle=FOX_WHITE;g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]+1,sh[1]+4);g.stroke();
     g.lineWidth=2;g.strokeStyle=FOX_RED;g.beginPath();g.moveTo(sh[0]-3,sh[1]+7);g.lineTo(hip[0]+3,hip[1]-2);g.stroke();
+  } else if(cg.rb){
+    g.lineWidth=14;g.strokeStyle='#c0c0c0';g.beginPath();g.moveTo(hip[0]+2,hip[1]-4);g.lineTo(sh[0]+1,sh[1]+4);g.stroke();
+    g.lineWidth=3;g.strokeStyle='#0033cc';g.beginPath();g.moveTo(sh[0]-3,sh[1]+7);g.lineTo(hip[0]+3,hip[1]-2);g.stroke();
   }
+  
   g.fillStyle=jc;g.beginPath();g.arc(sh[0],sh[1],6,0,7);g.fill();
   let f=limb(hip[0],hip[1],px,8+py,16.5,-1,7,pc); g.fillStyle='#111';g.beginPath();g.arc(f[2],f[3],5,0,7);g.fill(); g.fillStyle='#444';g.beginPath();g.arc(f[2],f[3]-3,3,0,7);g.fill();
   if(trk.name!=='NO-HANDER'){const e=limb(sh[0],sh[1],hand[0],hand[1],10,1,5,jc);g.fillStyle='#222';g.beginPath();g.arc(e[2],e[3],3.5,0,7);g.fill()} else {limb(sh[0],sh[1],hand[0],hand[1],10,1,5,jc);}
+  
   g.strokeStyle='#e8b48a';g.lineWidth=5;g.beginPath();g.moveTo(sh[0],sh[1]);g.lineTo(4,-41);g.stroke(); g.fillStyle='#e8b48a';g.beginPath();g.arc(5,-45,7,0,7);g.fill();
-  if(gear.rbHelmet && unlocked.rbHelmet){
+  
+  if(cg.showHelmet === false) {
+      // Без шлема (видны волосы)
+      g.fillStyle = '#442200'; g.beginPath(); g.arc(5, -48, 7, Math.PI, Math.PI*2); g.fill();
+  } else if(isRb){
     g.fillStyle='#0033cc';g.beginPath();g.arc(5,-46,10,Math.PI*.85,Math.PI*2.15);g.fill(); g.fillStyle='#fff';g.fillRect(8,-48,8,5); g.fillStyle='#e10600';g.beginPath();g.moveTo(1,-50);g.lineTo(-4,-55);g.lineTo(6,-55);g.fill();
-  } else if(unlocked.foxHelmet&&gear.fox){
+  } else if(isFox){
     g.fillStyle=FOX_RED;g.beginPath();g.arc(5,-46,10,Math.PI*.85,Math.PI*2.15);g.fill(); g.fillStyle='#111';g.fillRect(8,-48,8,5); g.fillStyle='#fff';g.beginPath();g.moveTo(1,-50);g.lineTo(-4,-55);g.lineTo(6,-55);g.fill();
   }else{
-    g.fillStyle=gear.helmet;g.beginPath();g.arc(5,-46,9,Math.PI*.8,Math.PI*2.2);g.fill(); g.fillStyle='#222';g.fillRect(8,-48,7,4); g.fillStyle='#fff';g.beginPath();g.moveTo(1,-49);g.lineTo(-4,-54);g.lineTo(5,-54);g.fill();
+    g.fillStyle=hc;g.beginPath();g.arc(5,-46,9,Math.PI*.8,Math.PI*2.2);g.fill(); g.fillStyle='#222';g.fillRect(8,-48,7,4); g.fillStyle='#fff';g.beginPath();g.moveTo(1,-49);g.lineTo(-4,-54);g.lineTo(5,-54);g.fill();
   }
 }
-function drawBike(k,wr,rid,cfg,trk,isBraking){
+
+function drawBike(k,wr,rid,cfg,trk,isBraking,customGear){
   cfg=cfg||bikeConfig();trk=trk||{};const prog=(trk.t>0&&trk.maxT>0)?(1-trk.t/trk.maxT):0;
   const wyf=10-k,wyr=10-k*.7;g.lineCap='round';g.lineJoin='round'; const ca=wr/14,px=Math.cos(ca)*6,py=Math.sin(ca)*6;const tW=cfg.tireW||8;
   const brakeSquish = isBraking ? 3 : 0, forkY = isBraking ? 2 : 0; 
@@ -352,7 +367,7 @@ function drawBike(k,wr,rid,cfg,trk,isBraking){
   g.fillStyle='#111'; g.save(); g.translate(-14,-21); g.scale(1, 0.4); g.beginPath(); g.arc(0, 0, 10, 0, Math.PI*2); g.fill(); g.restore();
   g.lineWidth=2;g.strokeStyle='#666';g.beginPath();g.moveTo(-px,8-py);g.lineTo(px,8+py);g.stroke();
   if(isBraking && P.vx > 2){ g.fillStyle='rgba(200,200,200,0.6)'; for(let i=0;i<3;i++){ const px = -30 - Math.random()*10; const py = wyr + 5 + Math.random()*5; g.beginPath(); g.arc(px, py, 2+Math.random()*3, 0, 7); g.fill(); } }
-  if(rid!==false)drawRider(ca,trk); g.restore();
+  if(rid!==false)drawRider(ca,trk,customGear); g.restore();
 }
 function drawLying(){const jc=gear.jersey,pc=gear.pants;g.lineCap='round';g.lineWidth=6;g.strokeStyle=pc;g.beginPath();g.moveTo(0,-6);g.lineTo(-11,-14);g.lineTo(-22,-4);g.stroke();g.lineWidth=9;g.strokeStyle=jc;g.beginPath();g.moveTo(0,-6);g.lineTo(22,-7);g.stroke();g.fillStyle=gear.fox?FOX_RED:gear.helmet;g.beginPath();g.arc(33,-9,9,0,7);g.fill()}
 function drawBeautifulSky(camera){const w=W,h=H;const grd=g.createLinearGradient(0,0,0,h);grd.addColorStop(0,'#4a90d9');grd.addColorStop(1,'#a8d8ff');g.fillStyle=grd;g.fillRect(0,0,w,h);
@@ -389,7 +404,8 @@ function patchNotes(){
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
   line('- КОМНАТА РЕЛИЗА С ДИДЖЕЕМ!', '#fc0');
-  line('- НОВЫЕ РАЙДЕРЫ (Марк, Аня, Яна).', '#0f0');
+  line('- НОВЫЕ РАЙДЕРЫ И ИХ ВНЕШНИЙ ВИД.', '#0f0');
+  line('- МЕНЮ ПЕРЕДЕЛАНО (ПРЕВЬЮ И ШЛЕМ).', '#fff');
   line('- ЧАТ ТЕПЕРЬ ТОЛЬКО В РЕЛИЗЕ.', '#fff');
   line('- Секретные коды "ЮМИ" и "КОТ" (+$35000).', '#fc0');
   line('- ДОБАВЛЕН РЕЖИМ "ДЁРТ" (вместо дропов).', '#0f0');
@@ -420,29 +436,102 @@ function recordsScreen(){
   y += 20; line('СУПЕР-БАЙК:', '#0f0', 18); line('Статус: ' + (superBikeUnlocked ? 'РАЗБЛОКИРОВАН' : 'ЗАКРЫТ'), superBikeUnlocked ? '#0f0' : '#f55'); line('Улучшение 400 км/ч: ' + (ownedParts.super_upg && ownedParts.super_upg[1] ? 'КУПЛЕНО' : 'НЕТ'), '#fff');
   btn('ОК', W/2-100, H*.8, 200, 55, ()=>S='menu', '#555');
 }
+
+// ===== МЕНЮ (ОБНОВЛЕННОЕ) =====
 function menu(){
-  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); txt('MTB FREERIDE',W/2,H*.07,Math.min(30,W*.055),'#fc0','center'); txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.14,Math.min(14,W*.025),'#fff','center');
-  txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left'); txt('В СЕТИ: ' + onlinePlayersCount, W - 20, H - 20, 14, '#0f0', 'right');
-  const cardW=Math.min(100,(W-60)/3-8),cardH=Math.min(80,H*.19); const startX=(W-cardW*8-7*5)/2,cardY=H*.2;
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
+  txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
+  txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.12,Math.min(14,W*.025),'#fff','center');
+  
+  txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left');
+  txt('В СЕТИ: ' + onlinePlayersCount, W - 20, H - 20, 14, '#0f0', 'right');
+
+  // Сетка райдеров (слева)
+  const cardW = W*0.09;
+  const cardH = H*0.15;
+  const startX = 20;
+  const startY = H*0.18;
+  
   RD.forEach((r,i)=>{
-    let row = Math.floor(i/4), col = i%4;
-    let x = startX + col*(cardW+5), y = cardY + row*(cardH+5);
-    g.fillStyle=i===R?'#3a5a7a':'#223';g.fillRect(x,y,cardW,cardH); g.strokeStyle=i===R?r.col:'#555';g.lineWidth=i===R?3:1;g.strokeRect(x,y,cardW,cardH);
-    g.fillStyle=r.col;g.beginPath();g.arc(x+cardW/2,y+cardH*.3,Math.min(14,cardH*.14),0,7);g.fill(); txt(r.n,x+cardW/2,y+cardH*.6,Math.min(12,cardH*.11),'#fff','center'); txt(r.t,x+cardW/2,y+cardH*.78,Math.min(9,cardH*.08),r.col,'center'); btns.push({x,y,w:cardW,h:cardH,f:()=>{R=i;save()}})
+    let col = i % 4;
+    let row = Math.floor(i / 4);
+    let x = startX + col * (cardW + 5);
+    let y = startY + row * (cardH + 5);
+    
+    g.fillStyle = i===R ? '#3a5a7a' : '#223';
+    g.fillRect(x, y, cardW, cardH);
+    g.strokeStyle = i===R ? r.col : '#555';
+    g.lineWidth = i===R ? 3 : 1;
+    g.strokeRect(x, y, cardW, cardH);
+    
+    g.fillStyle=r.col;
+    g.beginPath();g.arc(x+cardW/2, y+cardH*0.3, Math.min(12,cardH*0.15), 0, 7);g.fill();
+    
+    txt(r.n, x+cardW/2, y+cardH*0.6, Math.min(13,cardW*0.2), '#fff', 'center');
+    txt(r.t, x+cardW/2, y+cardH*0.8, Math.min(9,cardW*0.15), r.col, 'center');
+    
+    btns.push({x, y, w:cardW, h:cardH, f:()=>{R=i; save();}});
   });
-  const bh=Math.min(48,H*.075),row1y=cardY+cardH*2+20,bw=Math.min(180,(W-40)/2-8);
-  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{ if(useCf && cf || useCf && asm2.done) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { say('Мало МЕТ!'); } } else { if(!tutorialDone)startAssemble(); else startLoading(start); } },'#2a7');
+
+  // Превью выбранного райдера (справа)
+  const previewX = W*0.7;
+  const previewY = H*0.45;
+  
+  // Фон превью
+  g.fillStyle='rgba(0,0,0,0.3)';
+  g.fillRect(W*0.55, H*0.18, W*0.4, H*0.45);
+  g.strokeStyle='#555'; g.lineWidth=1;
+  g.strokeRect(W*0.55, H*0.18, W*0.4, H*0.45);
+
+  // Рисуем райдера и байк
+  g.save();
+  g.translate(previewX, previewY);
+  g.scale(2.5, 2.5);
+  let rg = RD[R].g;
+  let previewConfig = {frameCol: rg.b, rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'};
+  let customGear = {j: rg.j, p: rg.p, h: rg.h, rb: rg.rb, showHelmet: previewHelmet};
+  drawBike(0, 0, true, previewConfig, {}, false, customGear);
+  g.restore();
+
+  // Кнопка снятия шлема
+  btn(previewHelmet ? 'СНЯТЬ ШЛЕМ' : 'НАДЕТЬ ШЛЕМ', W*0.55 + W*0.1, H*0.65, W*0.2, 30, ()=>{previewHelmet = !previewHelmet;}, previewHelmet ? '#c33' : '#2a7');
+
+  // Кнопка ИГРАТЬ
+  const bw=Math.min(180,(W-40)/2-8), bh=Math.min(48,H*.075);
+  const row1y = H*0.68;
+  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{
+      if(useCf && cf || useCf && asm2.done) {
+          if(M >= 10) { M -= 10; save(); startLoading(start); } 
+          else { say('Нужно 10 МЕТ для кастомного велика!'); }
+      } else {
+          if(!tutorialDone)startAssemble();
+          else startLoading(start);
+      }
+  },'#2a7');
+  
+  // Ряд 2 (кнопки)
   const row2y=row1y+bh+10,bw2=Math.min(85,(W-30)/8-5),row2x=(W-bw2*8-7*5)/2;
-  btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a'); btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62'); btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
-  btn('СВАРКА',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33'); btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9'); btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
+  btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a'); 
+  btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62'); 
+  btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
+  btn('СВАРКА',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33'); 
+  btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9'); 
+  btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
   btn('ДЁРТ',row2x+(bw2+5)*6,row2y,bw2,bh,()=>{ dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 }; startLoading(()=>{ S='dirt'; }); },'#a63');
   btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
+  
+  // Ряд 3 (Релиз и Рекорды)
   const row3y=row2y+bh+10;
   btn('КОМНАТА РЕЛИЗА',(W-Math.min(280,W*.55))/2,row3y,Math.min(280,W*.55),bh*.85,()=>S='releaseRoom','#d90000');
   btn('ТРАССА: '+TR[tr].n,(W-Math.min(280,W*.55))/2,row3y+bh*.85+8,Math.min(280,W*.55),bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
-  btn('РЕЛИЗ', W-130, H-200, 120, 44, ()=>S='release', '#e01'); btn('РЕКОРДЫ', W-130, H-150, 120, 44, ()=>S='records', '#f60');
-  btn('ОБНОВЛЕНИЕ', W-130, H-100, 120, 44, ()=>S='patch', '#357'); btn('ВВЕСТИ КОД',W-130,H-50,120,44,()=>{openCodeUI()},'#0aa');
-  if(isDevMode) btn('АДМИНКА', 10, H-100, 120, 44, ()=>S='admin', '#f55');
+  
+  // Правый нижний угол (уменьшенные кнопки)
+  btn('РЕЛИЗ', W-90, H-130, 80, 30, ()=>S='release', '#e01'); 
+  btn('РЕК', W-90, H-95, 80, 30, ()=>S='records', '#f60');
+  btn('ОБНОВ', W-90, H-60, 80, 30, ()=>S='patch', '#357'); 
+  btn('КОД',W-90,H-25,80,20,()=>{openCodeUI()},'#0aa');
+  
+  if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
 }
 
 // ===== КОМНАТА РЕЛИЗА =====
@@ -699,7 +788,6 @@ function loop(now){
   rs(); now=now||performance.now(); const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now; fpsCount++; if(now-fpsTime>1000){fps=fpsCount;fpsCount=0;fpsTime=now}
   const s=settings.scale,dpr=Math.min(window.devicePixelRatio||1,3); g.setTransform(dpr*s,0,0,dpr*s,W/2*dpr*(1-s),H/2*dpr*(1-s)); btns=[];
   
-  // Показываем чат ТОЛЬКО в комнате релиза и после времени релиза
   if(S === 'releaseRoom' && Date.now() >= releaseTarget) {
       document.getElementById('chat-wrapper').style.display = 'flex';
   } else {

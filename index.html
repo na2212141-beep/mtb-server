@@ -80,7 +80,7 @@ function rs(){
 }
 rs();window.addEventListener('resize',rs);window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)});setInterval(rs,200);
 
-// Настройки и звук (Усилен для быстрого отклика)
+// Настройки и звук
 let settings={volume:0.5,scale:1.0,showFps:false};try{const d=JSON.parse(localStorage.getItem('mtb_settings'));if(d){settings.volume=d.volume||0.5;settings.scale=d.scale||1.0;settings.showFps=d.showFps||false}}catch(e){}
 function saveSettings(){try{localStorage.setItem('mtb_settings',JSON.stringify(settings))}catch(e){}}
 let audioCtx=null;function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}catch(e){}}
@@ -150,21 +150,19 @@ function activateDevCode(code){
     myNick='НИКОЛАЙ (АДМИН)';localStorage.setItem('mtb_nick',myNick);save();alert('КОД АКТИВИРОВАН!')
 }
 
-// Управление (Усиленное для быстрого отклика)
+// Управление (Убрана вибрация, уменьшен хитбокс для предотвращения перекрытия кнопок)
 function transformTouch(cx,cy){const s=settings.scale||1;let gx,gy;if(!isRotated){gx=cx;gy=cy}else{gx=cy;gy=H-cx}return[(gx-W/2)/s+W/2,(gy-H/2)/s+H/2]}
 function handleTap(cx,cy,id){
     const coords=transformTouch(cx,cy),px=coords[0],py=coords[1];ptr[id]=[px,py];
-    const pad=isTablet?45:35; // Увеличенный хитбокс для быстрого нажатия
+    const pad=isTablet?15:10; // Уменьшено, чтобы кнопки не наезжали друг на друга
     for(let i=btns.length-1;i>=0;i--){const b=btns[i];
         if(b.cx!==undefined){
             if(Math.hypot(px-b.cx,py-b.cy)<=b.r+pad){
-                if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){} // ВИБРАЦИЯ
                 if(b.onTap){beep(700,0.05);b.onTap();return}
                 if(b.f&&!b.hold){beep(700,0.05);b.f();return}
             }
         }
         else if(px>=b.x-pad&&px<=b.x+b.w+pad&&py>=b.y-pad&&py<=b.y+b.h+pad){
-            if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){} // ВИБРАЦИЯ
             if(b.onTap){beep(700,0.05);b.onTap();return}
             if(b.f){beep(700,0.05);b.f();return}
         }
@@ -276,7 +274,7 @@ function drawLoading(){g.fillStyle='#0a0a15';g.fillRect(0,0,W,H);txt('MTB FREERI
 function splash(){const w=W,h=H;const grd=g.createLinearGradient(0,0,0,h);grd.addColorStop(0,'#0a0e27');grd.addColorStop(1,'#2a0a3a');g.fillStyle=grd;g.fillRect(0,0,w,h);const t=performance.now()*.001;for(let i=0;i<40;i++){const sx=(i*137+t*12)%w;const sy=(i*89+t*6)%(h*.55);const a=.3+.4*Math.sin(t*2+i);g.fillStyle='rgba(255,220,150,'+a+')';g.beginPath();g.arc(sx,sy,1.5,0,7);g.fill()}txt('MTB FREERIDE',w/2,h*.15,Math.min(44,w*.09),'#fc0','center');txt('2 0 2 4 E D I T I O N',w/2,h*.22,Math.min(16,w*.03),'#ffaa88','center');g.fillStyle='rgba(0,0,0,.5)';g.fillRect(w*.15,h*.32,w*.7,h*.35);g.strokeStyle='rgba(252,200,0,.5)';g.lineWidth=2;g.strokeRect(w*.15,h*.32,w*.7,h*.35);txt('РАЗРАБОТЧИК',w/2,h*.4,Math.min(14,w*.026),'#888','center');txt('MTB Studio',w/2,h*.46,Math.min(24,w*.05),'#fff','center');txt('Горный велосипед · Трюки · Трассы',w/2,h*.55,Math.min(14,w*.026),'#8cf','center');txt('v1.0 · Multiplayer Edition',w/2,h*.71,Math.min(11,w*.02),'#555','center');const bw=Math.min(280,w*.55),bh=Math.min(60,h*.1);btn('ПОНЯТНО',w/2-bw/2,h*.83,bw,bh,()=>{initAudio();S='menu'},'#2a7')}
 function settings_screen(){g.fillStyle='#1a2030';g.fillRect(0,0,W,H);backBtn('menu');txt('НАСТРОЙКИ',W/2,44,Math.min(28,W*.05),'#fc0','center');const sy=H*.25,lh=Math.min(80,H*.15);const c1=W*0.15,c2=W*0.45,c3=W*0.65,c4=W*0.75;const bh=Math.min(50,H*.08);txt('ЗВУК',c1,sy+bh/2+5,Math.min(18,W*.032),'#fff');btn('<',c2,sy,60,bh,()=>{settings.volume=Math.max(0,settings.volume-0.1);saveSettings()},'#555');txt(Math.round(settings.volume*100)+'%',c3,sy+bh/2+5,Math.min(18,W*.032),'#fc0','center');btn('>',c4,sy,60,bh,()=>{settings.volume=Math.min(1,settings.volume+0.1);saveSettings()},'#555');txt('МАСШТАБ',c1,sy+lh+bh/2+5,Math.min(18,W*.032),'#fff');btn('<',c2,sy+lh,60,bh,()=>{settings.scale=Math.max(0.7,settings.scale-0.1);saveSettings()},'#555');txt(Math.round(settings.scale*100)+'%',c3,sy+lh+bh/2+5,Math.min(18,W*.032),'#fc0','center');btn('>',c4,sy+lh,60,bh,()=>{settings.scale=Math.min(1.5,settings.scale+0.1);saveSettings()},'#555');txt('FPS',c1,sy+lh*2+bh/2+5,Math.min(18,W*.032),'#fff');btn(settings.showFps?'ВКЛ':'ВЫКЛ',c2,sy+lh*2,Math.min(140,W*.15),bh,()=>{settings.showFps=!settings.showFps;saveSettings()},settings.showFps?'#2a7':'#444');btn('СМЕНИТЬ НИК',W/2-Math.min(280,W*.5)/2,H*.65,Math.min(280,W*.5),Math.min(52,H*.08),()=>{document.getElementById('nick-input').value=myNick;document.getElementById('nick-overlay').style.display='flex'},'#357');btn('СБРОС ПРОГРЕССА',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933')}
 
-// Меню (с кнопкой TikTok)
+// Меню (с кнопкой TikTok и увеличенным расстоянием между кнопками)
 function menu(){
     g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
     txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
@@ -315,38 +313,41 @@ function menu(){
         else{if(!tutorialDone)startAssemble();else startLoading(start)}
     },'#2a7');
     
-    const row2y=row1y+bh+10;
-    const bw2=isTablet?100:Math.min(70,(W-30)/8-5);
-    const row2x=(W-bw2*8-7*5)/2;
+    // Раздвигаем кнопки (увеличиваем отступы)
+    const row2y=row1y+bh+15;
+    const gap=8;
+    const bw2=isTablet?90:Math.max(45,Math.min(65,(W-40-7*gap)/8));
+    const row2x=(W-bw2*8-7*gap)/2;
     
     btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a');
-    btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62');
-    btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
-    btn('СВАРКА',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33');
-    btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9');
-    btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
-    btn('ДЁРТ',row2x+(bw2+5)*6,row2y,bw2,bh,()=>{dirtMode={state:'walk',px:0,vx:0,cam:0,digTimer:0,ramps:[],air:false,vy:0,rot:0};startLoading(()=>{S='dirt'})},'#a63');
-    btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
+    btn('МАГАЗ',row2x+(bw2+gap),row2y,bw2,bh,()=>S='shop','#a62');
+    btn('ГАРАЖ',row2x+(bw2+gap)*2,row2y,bw2,bh,()=>S='garage','#e70');
+    btn('СВАРКА',row2x+(bw2+gap)*3,row2y,bw2,bh,()=>S='workshop','#c33');
+    btn('СБОРКА',row2x+(bw2+gap)*4,row2y,bw2,bh,()=>S='workshop2','#3c9');
+    btn('ТРЮК',row2x+(bw2+gap)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
+    btn('ДЁРТ',row2x+(bw2+gap)*6,row2y,bw2,bh,()=>{dirtMode={state:'walk',px:0,vx:0,cam:0,digTimer:0,ramps:[],air:false,vy:0,rot:0};startLoading(()=>{S='dirt'})},'#a63');
+    btn('⚙',row2x+(bw2+gap)*7,row2y,bw2,bh,()=>S='settings','#555');
 
-    const row3y=row2y+bh+10;
-    btn('RED BULL',(W-280)/2,row3y,130,bh*.85,()=>S='rbMenu','#d90000');
-    btn('ДУЭЛЬ',(W-280)/2+140,row3y,140,bh*.85,()=>{showDuelMenu()},'#f0f');
+    // Отступ между рядами увеличен
+    const row3y=row2y+bh+25;
+    btn('RED BULL',(W-300)/2,row3y,140,bh*.85,()=>S='rbMenu','#d90000'); 
+    btn('ДУЭЛЬ',(W-300)/2+160,row3y,140,bh*.85,()=>{showDuelMenu()},'#f0f');
 
-    const row4y=row3y+bh*.85+8;
-    btn('КОМНАТА',(W-280)/2,row4y,130,bh*.85,()=>S='releaseRoom','#e01');
-    btn('ТРАССА: '+TR[tr].n,(W-280)/2+140,row4y,140,bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
+    const row4y=row3y+bh*.85+20;
+    btn('КОМНАТА',(W-300)/2,row4y,140,bh*.85,()=>S='releaseRoom','#e01');
+    btn('ТРАССА: '+TR[tr].n,(W-300)/2+160,row4y,140,bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
 
+    // Кнопки справа (больше расстояния по вертикали)
     const rightBtnX=W-100;
-    // НОВАЯ КНОПКА TIKTOK
-    btn('TikTok 🎬',rightBtnX,H-200,90,30,()=>{window.open('https://vt.tiktok.com/ZSp9fShmw/', '_blank')},'#ff0050');
-    btn('РЕЛИЗ',rightBtnX,H-165,90,30,()=>S='release','#e01');
-    btn('РЕКОРДЫ',rightBtnX,H-130,90,30,()=>S='records','#f60');
-    btn('ОБНОВ',rightBtnX,H-95,90,30,()=>S='patch','#357');
-    btn('КОД',rightBtnX,H-60,90,30,()=>{openCodeUI()},'#0aa');
+    btn('TikTok 🎬',rightBtnX,H-240,90,30,()=>{window.open('https://vt.tiktok.com/ZSp9fShmw/', '_blank')},'#ff0050');
+    btn('РЕЛИЗ',rightBtnX,H-200,90,30,()=>S='release','#e01');
+    btn('РЕКОРДЫ',rightBtnX,H-160,90,30,()=>S='records','#f60');
+    btn('ОБНОВ',rightBtnX,H-120,90,30,()=>S='patch','#357');
+    btn('КОД',rightBtnX,H-80,90,30,()=>{openCodeUI()},'#0aa');
     if(isDevMode)btn('АДМИНКА',10,H-60,100,40,()=>S='admin','#f55');
 }
 
-function patchNotes(){g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);backBtn('menu');txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');let y=90;const l=(t,c='#fff',s=14)=>{txt(t,20,y,s,c);y+=24};l('ЧТО НОВОГО:','#0f0',18);l('- КОМНАТА РЕЛИЗА С ДИДЖЕЕМ!','#fc0');l('- НОВЫЕ РАЙДЕРЫ И ИХ ВНЕШНИЙ ВИД.','#0f0');l('- МЕНЮ ПЕРЕДЕЛАНО (ПРЕВЬЮ И ШЛЕМ).','#fff');l('- ДОБАВЛЕН РЕЖИМ "ДУЭЛЬ" С ДРУГОМ!','#f0f');y+=15;l('ИСПРАВЛЕНИЯ БАГОВ:','#0f0',18);l('- ИСПРАВЛЕНЫ КНОПКИ И ХИТБОКСЫ.','#0f0');l('- ПОЧИНЕН ТАЙМЕР, ГАРАЖ И КАРТЫ.','#0f0');l('- ЧАТ БОЛЬШЕ НЕ МЕШАЕТ КНОПКАМ.','#0f0');l('- АДМИНКА ТЕПЕРЬ СОХРАНЯЕТСЯ.','#0f0')}
+function patchNotes(){g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);backBtn('menu');txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');let y=90;const l=(t,c='#fff',s=14)=>{txt(t,20,y,s,c);y+=24};l('ЧТО НОВОГО:','#0f0',18);l('- КОМНАТА РЕЛИЗА С ДИДЖЕЕМ!','#fc0');l('- НОВЫЕ РАЙДЕРЫ И ИХ ВНЕШНИЙ ВИД.','#0f0');l('- МЕНЮ ПЕРЕДЕЛАНО (ПРЕВЬЮ И ШЛЕМ).','#fff');l('- ДОБАВЛЕН РЕЖИМ "ДУЭЛЬ" С ДРУГОМ!','#f0f');y+=15;l('ИСПРАВЛЕНИЯ БАГОВ:','#0f0',18);l('- РАЗДВИНУТЫ КНОПКИ И УБРАНА ВИБРАЦИЯ.','#0f0');l('- ИСПРАВЛЕНЫ ХИТБОКСЫ.','#0f0');l('- ПОЧИНЕН ТАЙМЕР, ГАРАЖ И КАРТЫ.','#0f0');l('- АДМИНКА ТЕПЕРЬ СОХРАНЯЕТСЯ.','#0f0')}
 
 // Таймер
 function getTimeLeft(){let n=new Date().getTime(),d=releaseTarget-n;if(d<0)d=0;let dd=Math.floor(d/(1000*60*60*24)),hh=Math.floor((d%(1000*60*60*24))/(1000*60*60)),mm=Math.floor((d%(1000*60*60))/(1000*60)),ss=Math.floor((d%(1000*60))/1000);return{d:dd,h:hh,m:mm,s:ss,diff:d}}
@@ -457,7 +458,7 @@ function rb(dt){const fs=Math.min(3,dt*60);while(nm<P.x+W*2){ms.push(nm);nm+=300
 // Дуэль
 function duelMode(dt){const fs=Math.min(3,dt*60);while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}const pS=partsStats();let vmax=BK[B].v+(cfS()+pS.sp)*5;if(B===12)vmax=(ownedParts.super_upg&&ownedParts.super_upg[1])?40:25;else if(B===11)vmax=40;const btnR=Math.min(55,Math.min(W,H)*.11);const gx=W-btnR-20,gyC=H-btnR-25,bx=btnR+20,by=H-btnR-25,jx=W/2,jy=H-btnR-25,tx=W/2+(btnR+20),ty=H-btnR-25;let isB=false;if(!cr){if(!P.air){const gs=heldCircle(gx,gyC,btnR),bk=heldCircle(bx,by,btnR);isB=bk;if(gs&&!bk)P.vx+=vmax*.025*fs;else if(bk&&!gs)P.vx-=vmax*.045*fs;else P.vx*=Math.pow(.985,fs);P.vx=Math.max(0,Math.min(vmax,P.vx))}P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl}else{P.vy+=.4*fs;P.y+=P.vy*fs;const r=(heldCircle(bx,by,btnR)?-1:0)+(heldCircle(gx,gyC,btnR)?1:0);P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));if(Math.abs(d-sl)>1.5){cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30}P.tot=0}}if(P.x>duelState.target*10&&!cr){finishDuel(socket.id,'Оппонент')}}else{cv*=.93;P.x+=cv*fs;rX+=cv*fs}if(Date.now()-lastNetEmit>50&&socket.connected){let relY=P.y-T(P.x);socket.emit('playerMove',{x:P.x,y:relY,a:P.a,air:P.air,nick:myNick});lastNetEmit=Date.now()}const cx=P.x-W*.35;drawBeautifulSky(cx);drawBeautifulTerrain(cx);let fx=duelState.target*10-cx;if(fx>-50&&fx<W+50){for(let i=0;i<H;i+=40){g.fillStyle='#000';g.fillRect(fx,i,10,20);g.fillStyle='#fff';g.fillRect(fx,i+20,10,20)}txt('ФИНИШ (500м)',fx+15,H/2,20,'#000')}rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});if(opponents[duelState.opponentId]){let opp=opponents[duelState.opponentId];let oX=opp.x-cx;if(oX>-100&&oX<W+100){g.save();let oY=T(opp.x)+opp.y;g.translate(oX,oY);g.rotate(opp.a||0);g.scale(SC,SC);let gCfg={frameCol:'#f0f',rimCol:'#333',tireCol:'#111',tireW:8,forkCol:'#fa0'};drawBike(0,opp.x,true,gCfg,{},false);g.restore();txt(opp.nick,oX,oY-65,12,'#fff','center')}if(opp.x>duelState.target*10&&!cr){finishDuel(duelState.opponentId,myNick)}}if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isB);g.restore()}else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore();const s3=Math.atan2(T(rX+40)-T(rX-40),80);g.save();g.translate(rX-cx,T(rX));g.rotate(s3);g.scale(SC,SC);drawLying();g.restore()}txt('ДУЭЛЬ НА $'+duelState.bet,W/2,30,20,'#f0f','center');txt('До финиша: '+Math.max(0,duelState.target-Math.floor(P.x/10))+' м',W/2,55,16,'#fff','center');if(!cr){if(!P.air){circleBtn(gx,gyC,btnR,'#2a7',drawChainring,null,true);circleBtn(bx,by,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jx,jy,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}else{circleBtn(bx,by,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,-1),null,true);circleBtn(gx,gyC,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,1),null,true);circleBtn(tx,ty,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}btn('СДАТЬСЯ',W-100,10,90,40,()=>{finishDuel(duelState.opponentId,myNick)},'#b33')}else if(cr>40){finishDuel(duelState.opponentId,myNick)}}
 
-// Езда (с кнопкой TikTok при проигрыше)
+// Езда
 function ride(dt){
     const fs=Math.min(3,dt*60);
     while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
@@ -595,7 +596,6 @@ function ride(dt){
         txt('Дистанция: '+Math.floor(P.x/30)+'м',W/2,H*.35,22,'#fff','center');
         btn('ЗАНОВО',W/2-160,H*.55,150,50,()=>{startLoading(start)},'#2a7');
         btn('МЕНЮ',W/2+10,H*.55,150,50,()=>{save();S='menu'},'#555');
-        // НОВАЯ КНОПКА TIKTOK ПРИ ПРОИГРЫШЕ
         btn('🎬 МОЙ TIKTOK',W/2-100,H*.7,200,50,()=>window.open('https://vt.tiktok.com/ZSp9fShmw/','_blank'),'#ff0050');
     }
 }

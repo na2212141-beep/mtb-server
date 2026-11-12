@@ -5,14 +5,15 @@ html,body{background:#000;overflow:hidden;height:100%;width:100%;touch-action:no
 #game-wrap.portrait{width: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));height: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));transform: rotate(90deg) translateY(-100%);}
 canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;width:100%;height:100%}
 
-#code-overlay, #nick-overlay, #warn-overlay, #policy-overlay, #text-overlay {position: fixed; top: 0; left: 0; width: 100%; height: 100%;background: rgba(0,0,0,0.9);display: none; flex-direction: column; justify-content: center; align-items: center;z-index: 1000; text-align: center; padding: 20px;}
+#code-overlay, #nick-overlay, #warn-overlay, #policy-overlay, #text-overlay, #duel-overlay {position: fixed; top: 0; left: 0; width: 100%; height: 100%;background: rgba(0,0,0,0.9);display: none; flex-direction: column; justify-content: center; align-items: center;z-index: 1000; text-align: center; padding: 20px;}
 #nick-overlay { display: flex; background: rgba(10, 15, 30, 0.95); z-index: 1002; }
 #policy-overlay { display: flex; background: rgba(10, 15, 30, 0.98); z-index: 1003; }
 #warn-overlay { z-index: 1001; }
 #text-overlay { z-index: 1004; }
+#duel-overlay { z-index: 1005; background: rgba(30, 0, 0, 0.95); }
 
-#code-overlay input, #nick-overlay input, #policy-overlay input, #text-overlay input {width: 80%; max-width: 400px; padding: 15px; font-size: 20px; text-align: center;font-family: "Courier New", monospace; border: 2px solid #fc0; background: #111; color: #fff;border-radius: 8px; outline: none; margin-bottom: 20px;}
-#code-overlay button, #nick-overlay button, #warn-overlay button, #policy-overlay button, #text-overlay button {padding: 15px 40px; font-size: 18px; font-weight: bold;font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer; margin: 10px; color: #fff;}
+#code-overlay input, #nick-overlay input, #policy-overlay input, #text-overlay input, #duel-overlay input {width: 80%; max-width: 400px; padding: 15px; font-size: 20px; text-align: center;font-family: "Courier New", monospace; border: 2px solid #fc0; background: #111; color: #fff;border-radius: 8px; outline: none; margin-bottom: 20px;}
+#code-overlay button, #nick-overlay button, #warn-overlay button, #policy-overlay button, #text-overlay button, #duel-overlay button {padding: 15px 40px; font-size: 18px; font-weight: bold;font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer; margin: 10px; color: #fff;}
 .btn-green { background: #2a7; } .btn-red { background: #e33; } .btn-blue { background: #357; }
 
 #chat-wrapper {position: fixed; bottom: 10px; left: 10px; z-index: 500; display: none; flex-direction: column;}
@@ -59,6 +60,15 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
   </div>
 </div>
 
+<div id="duel-overlay">
+  <div style="color:#f55; font-size:26px; margin-bottom:15px; font-weight:bold;">ВЫЗОВ НА ДУЭЛЬ!</div>
+  <div style="color:#fff; font-size:18px; margin-bottom:20px;" id="duel-info-text">Игрок X хочет сразиться с тобой!</div>
+  <div>
+    <button class="btn-green" onclick="acceptDuel()">ПРИНЯТЬ</button>
+    <button class="btn-red" onclick="declineDuel()">ОТКЛОНИТЬ</button>
+  </div>
+</div>
+
 <div id="code-overlay">
   <div style="color:#fff; margin-bottom:15px; font-size:18px;">ВВЕДИТЕ КОД</div>
   <input type="text" id="code-input" autocomplete="off" spellcheck="false" placeholder="КОД">
@@ -76,7 +86,7 @@ const c=document.getElementById('c'),g=c.getContext('2d',{alpha:false});
 const wrap=document.getElementById('game-wrap');
 g.imageSmoothingEnabled=false;
 
-// ===== ПОДКЛЮЧЕНИЕ К СЕРВЕРУ =====
+// ===== СЕТЬ =====
 const socket = io('https://mtb-server.onrender.com', { transports: ['websocket'] });
 let opponents = {}, onlinePlayersCount = 0, serverPlayersList = [];
 let releaseText = "РЕЛИЗ MTB FREERIDE!";
@@ -86,29 +96,69 @@ socket.on('connect', () => { console.log('✅ Подключено!', socket.id)
 socket.on('playerConnected', () => { onlinePlayersCount++; });
 socket.on('playerDisconnected', () => { onlinePlayersCount = Math.max(0, onlinePlayersCount - 1); });
 socket.on('opponentMove', (data) => { opponents[data.id] = { x: data.x, y: data.y, a: data.a || 0, air: data.air || 0, nick: data.nick || 'Игрок', lastSeen: Date.now() }; });
-
 socket.on('releaseAnnouncement', (text) => { releaseText = text; });
 socket.on('stageStatus', (status) => { isDevOnStage = status; });
-
-socket.on('loadDataFromServer', (data) => {
-    if(data.money !== undefined) $ = data.money; if(data.metal !== undefined) M = data.metal; if(data.best !== undefined) best = data.best; if(data.ownedBikes) own = data.ownedBikes;
-    saveLocal(); console.log("Прогресс загружен с сервера!");
-});
+socket.on('loadDataFromServer', (data) => { if(data.money !== undefined) $ = data.money; if(data.metal !== undefined) M = data.metal; if(data.best !== undefined) best = data.best; if(data.ownedBikes) own = data.ownedBikes; saveLocal(); });
 socket.on('adminGetAllResult', (players) => { serverPlayersList = players; alert("Данные загружены!"); });
-socket.on('chatMessage', (data) => {
-    const box = document.getElementById('chat-messages');
-    const msg = document.createElement('div');
-    msg.innerHTML = `<span style="color:#fc0">${data.nick}:</span> <span style="color:#fff">${data.text}</span>`;
-    box.appendChild(msg); if (box.children.length > 5) box.removeChild(box.firstChild); box.scrollTop = box.scrollHeight;
+socket.on('chatMessage', (data) => { const box = document.getElementById('chat-messages'); const msg = document.createElement('div'); msg.innerHTML = `<span style="color:#fc0">${data.nick}:</span> <span style="color:#fff">${data.text}</span>`; box.appendChild(msg); if (box.children.length > 5) box.removeChild(box.firstChild); box.scrollTop = box.scrollHeight; });
+
+// Дуэль события
+socket.on('receiveDuelInvite', (data) => {
+    duelState.pendingChallengerId = data.fromId;
+    duelState.bet = data.bet;
+    document.getElementById('duel-info-text').innerHTML = `Игрок <b style="color:#fc0">${data.fromNick}</b> вызывает тебя на дуэль!<br>Ставка: <b style="color:#0f0">$${data.bet}</b>`;
+    document.getElementById('duel-overlay').style.display = 'flex';
+});
+socket.on('duelStarted', (data) => {
+    duelState.opponentId = data.opponentId;
+    duelState.isChallenger = data.isChallenger;
+    startLoading(() => { S='duel'; startDuel(); });
+});
+socket.on('duelResult', (data) => {
+    if(data.win) { $ += data.bet; alert(`ТЫ ПОБЕДИЛ! +$${data.bet}`); } 
+    else { alert(`ТЫ ПРОИГРАЛ! -$${data.bet}`); }
+    save(); S='menu';
 });
 
-function sendChat() { const input = document.getElementById('chat-input'); const text = input.value.trim(); if (text) { socket.emit('chatMessage', { nick: myNick, text: text }); input.value = ''; } }
-function sendReleaseText() {
-    const txt = document.getElementById('release-text-input').value.trim();
-    if(txt) { socket.emit('releaseAnnouncement', txt); document.getElementById('text-overlay').style.display='none'; }
+// ===== ДУЭЛЬ ФУНКЦИИ =====
+let duelState = { active: false, opponentId: null, bet: 0, isChallenger: false, target: 500 };
+function showDuelMenu() {
+    let opps = Object.keys(opponents).filter(id => Date.now() - opponents[id].lastSeen < 5000);
+    if(opps.length === 0) { alert("В сети нет других игроков для дуэли!"); return; }
+    let targetId = opps[0];
+    let targetNick = opponents[targetId].nick;
+    let bet = prompt(`Игрок ${targetNick} в сети. Введите сумму ставки (например, 5000):`);
+    if(bet && parseInt(bet) > 0) {
+        bet = parseInt(bet);
+        if($ >= bet) {
+            socket.emit('sendDuelInvite', { targetId: targetId, fromNick: myNick, bet: bet });
+            alert(`Приглашение отправлено игроку ${targetNick} на сумму $${bet}`);
+        } else alert("У тебя недостаточно денег!");
+    }
+}
+function acceptDuel() {
+    document.getElementById('duel-overlay').style.display = 'none';
+    socket.emit('acceptDuel', { challengerId: duelState.pendingChallengerId, bet: duelState.bet, challengerNick: opponents[duelState.pendingChallengerId]?.nick || 'Игрок', accepterNick: myNick });
+}
+function declineDuel() {
+    document.getElementById('duel-overlay').style.display = 'none';
+    socket.emit('chatMessage', { nick: 'Система', text: myNick + ' отклонил дуэль.' });
+}
+function startDuel() {
+    P = {x:0, y:T(0)-GL*SC, vy:0, a:0, tot:0, air:0, vx:0};
+    ms=[]; nm=400; rp=[]; nr=1000; cr=0; trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};
+    duelState.active = true;
+}
+function finishDuel(winnerId, loserNick) {
+    if(!duelState.active) return;
+    duelState.active = false;
+    socket.emit('duelFinished', { winnerId: winnerId, winnerNick: winnerId === socket.id ? myNick : 'Оппонент', loserNick: loserNick, bet: duelState.bet, loserId: winnerId === socket.id ? duelState.opponentId : socket.id });
 }
 
-// ===== СИСТЕМА НИКНЕЙМОВ =====
+function sendChat() { const input = document.getElementById('chat-input'); const text = input.value.trim(); if (text) { socket.emit('chatMessage', { nick: myNick, text: text }); input.value = ''; } }
+function sendReleaseText() { const txt = document.getElementById('release-text-input').value.trim(); if(txt) { socket.emit('releaseAnnouncement', txt); document.getElementById('text-overlay').style.display='none'; } }
+
+// ===== НИКИ =====
 let myNick = localStorage.getItem('mtb_nick') || '';
 const BAD_WORDS = ['хуй', 'хуя', 'пизд', 'бля', 'еб', 'ёб', 'сук', 'муд', 'говн', 'залуп', 'дроч', 'fuck', 'shit', 'bitch', 'cunt', 'asshole'];
 function submitNick() {
@@ -135,7 +185,7 @@ function rs(){
 }
 rs(); window.addEventListener('resize',rs); window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)}); setInterval(rs,200);
 
-// ===== НАСТРОЙКИ И ЗВУК =====
+// ===== НАСТРОЙКИ =====
 let settings={volume:0.5,scale:1.0,showFps:false};
 try{const d=JSON.parse(localStorage.getItem('mtb_settings'));if(d){settings.volume=d.volume||0.5;settings.scale=d.scale||1.0;settings.showFps=d.showFps||false}}catch(e){}
 function saveSettings(){try{localStorage.setItem('mtb_settings',JSON.stringify(settings))}catch(e){}}
@@ -143,7 +193,7 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ (РАЗНЫЕ РАЙДЕРЫ) =====
+// ===== ДАННЫЕ (СКОРОСТИ) =====
 const RD=[
   {n:'Даша',t:'Обычный',s:5,col:'#4af',g:{h:'#4af', j:'#e33', p:'#222', b:'#1d8a73'}},
   {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a',g:{h:'#f4a', j:'#222', p:'#111', b:'#444'}},
@@ -155,12 +205,21 @@ const RD=[
   {n:'Яна',t:'Мастер',s:8,col:'#a0f',g:{h:'#a0f', j:'#f4a', p:'#222', b:'#1a1a1a'}}
 ];
 
+// V - это базовая скорость в игре (v * 10 = км/ч)
 const BK=[
-  {n:'Giant Glory',p:0,sp:0,c:'#1d8a73'},{n:'Trek Session',p:2000,sp:1,c:'#1a1a1a'},{n:'Commencal Meta',p:5000,sp:1,c:'#444444'},
-  {n:'Ascend Bikes',p:10000,sp:2,c:'#cccccc'},{n:'Canyon Sender',p:18000,sp:2,c:'#0a0a0a'},{n:'YT Tues',p:25000,sp:3,c:'#e88000'},
-  {n:'Mondraker Summum',p:35000,sp:3,c:'#f66000'},{n:'Santa Cruz Bronson',p:45000,sp:4,c:'#2c9'},{n:'Specialized Demo',p:60000,sp:4,c:'#e33'},
-  {n:'Santa Cruz V10',p:80000,sp:5,c:'#a0f'},{n:'MTB 2016-12',p:150000,sp:10,c:'#ff00ff'},{n:'ДОМАШНИЙ',p:0,sp:0,c:'#ffaa00',maxSpeed:10},
-  {n:'СУПЕР-БАЙК',p:0,sp:0,c:'#00ffff',isSuper:true} 
+  {n:'Giant Glory',p:0,sp:0,c:'#1d8a73', v:5}, 
+  {n:'Trek Session',p:2000,sp:1,c:'#1a1a1a', v:6},
+  {n:'Commencal Meta',p:5000,sp:1,c:'#444444', v:7},
+  {n:'Ascend Bikes',p:10000,sp:2,c:'#cccccc', v:8},
+  {n:'Canyon Sender',p:18000,sp:2,c:'#0a0a0a', v:9},
+  {n:'YT Tues',p:25000,sp:3,c:'#e88000', v:10},
+  {n:'Mondraker Summum',p:35000,sp:3,c:'#f66000', v:11},
+  {n:'Santa Cruz Bronson',p:45000,sp:4,c:'#2c9', v:12},
+  {n:'Specialized Demo',p:60000,sp:4,c:'#e33', v:13},
+  {n:'Santa Cruz V10',p:80000,sp:5,c:'#a0f', v:15}, // 150 км/ч
+  {n:'MTB 2016-12',p:150000,sp:10,c:'#ff00ff', v:25}, // 250 км/ч
+  {n:'ДОМАШНИЙ',p:0,sp:0,c:'#ffaa00', v:40}, // 400 км/ч
+  {n:'СУПЕР-БАЙК',p:0,sp:0,c:'#00ffff', v:25} // 250/400 км/ч
 ];
 const CL=['#e33','#fc0','#3c6','#39f','#fff','#222','#f4a','#f60','#0e0','#111'];
 const TR=[{n:'Лес',sky:'#8cf',gr:'#4a5',amp:1},{n:'Пустыня',sky:'#fd9',gr:'#db7',amp:1.3},{n:'Горы',sky:'#bcd',gr:'#eef',amp:1.6},{n:'БАЙК-ПАРК',sky:'#c9e',gr:'#5a4',amp:0.6,park:true}];
@@ -218,7 +277,7 @@ if (!BK[B]) B = 0; if (!PARTS[garageTab]) garageTab = 'fork';
 loadData();
 addEventListener('pagehide',save);addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 
-// ===== СИСТЕМА КОДОВ =====
+// ===== КОДЫ =====
 function openCodeUI() { document.getElementById('code-overlay').style.display = 'flex'; document.getElementById('code-input').value = ''; document.getElementById('code-input').focus(); }
 function closeCodeUI() { document.getElementById('code-overlay').style.display = 'none'; }
 function submitCode() {
@@ -331,7 +390,6 @@ function drawRider(ca,trk,customGear){
   g.strokeStyle='#e8b48a';g.lineWidth=5;g.beginPath();g.moveTo(sh[0],sh[1]);g.lineTo(4,-41);g.stroke(); g.fillStyle='#e8b48a';g.beginPath();g.arc(5,-45,7,0,7);g.fill();
   
   if(cg.showHelmet === false) {
-      // Без шлема (видны волосы)
       g.fillStyle = '#442200'; g.beginPath(); g.arc(5, -48, 7, Math.PI, Math.PI*2); g.fill();
   } else if(isRb){
     g.fillStyle='#0033cc';g.beginPath();g.arc(5,-46,10,Math.PI*.85,Math.PI*2.15);g.fill(); g.fillStyle='#fff';g.fillRect(8,-48,8,5); g.fillStyle='#e10600';g.beginPath();g.moveTo(1,-50);g.lineTo(-4,-55);g.lineTo(6,-55);g.fill();
@@ -403,21 +461,21 @@ function patchNotes(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
+  line('- ДОБАВЛЕН РЕЖИМ "ДУЭЛЬ" С ДРУГОМ!', '#f0f');
+  line('- РЕАЛИСТИЧНЫЕ СКОРОСТИ ВЕЛИКОВ.', '#0f0');
   line('- КОМНАТА РЕЛИЗА С ДИДЖЕЕМ!', '#fc0');
   line('- НОВЫЕ РАЙДЕРЫ И ИХ ВНЕШНИЙ ВИД.', '#0f0');
   line('- МЕНЮ ПЕРЕДЕЛАНО (ПРЕВЬЮ И ШЛЕМ).', '#fff');
-  line('- ЧАТ ТЕПЕРЬ ТОЛЬКО В РЕЛИЗЕ.', '#fff');
-  line('- Секретные коды "ЮМИ" и "КОТ" (+$35000).', '#fc0');
-  line('- ДОБАВЛЕН РЕЖИМ "ДЁРТ" (вместо дропов).', '#0f0');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
-  line('- ИСПРАВЛЕНЫ КНОПКИ (больше не залипают).', '#0f0'); line('- ПОЧИНЕН ГАРАЖ НА APK.', '#0f0');
+  line('- ИСПРАВЛЕНЫ КНОПКИ (больше не залипают).', '#0f0'); line('- ПОЧИНЕН ГАРАЖ И ТАЙМЕР.', '#0f0');
 }
 function releaseScreen(){
   g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); txt('РЕЛИЗ MTB FREERIDE',W/2,44,Math.min(26,W*.05),'#e01','center');
-  let now = new Date().getTime(), diff = releaseTarget - now; if(diff < 0) diff = 0;
-  let d = Math.floor(diff / (1000 * 60 * 60 * 24)), h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)), m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)), s = Math.floor((diff % (1000 * 60)) / 1000);
-  let timeStr = `${d}д ${h}ч ${m}м ${s}с`;
-  txt('ДО ОФИЦИАЛЬНОГО РЕЛИЗА:', W/2, H*.35, 20, '#fff', 'center'); txt(timeStr, W/2, H*.45, 32, '#0f0', 'center'); txt('13 Ноября, 18:30', W/2, H*.55, 18, '#ccc', 'center');
+  let timeLeft = getTimeLeft();
+  let timeStr = `${timeLeft.d}д ${timeLeft.h}ч ${timeLeft.m}м ${timeLeft.s}с`;
+  txt('ДО ОФИЦИАЛЬНОГО РЕЛИЗА:', W/2, H*.35, 20, '#fff', 'center'); 
+  txt(timeStr, W/2, H*.45, 32, '#0f0', 'center'); 
+  txt('13 Ноября, 18:30', W/2, H*.55, 18, '#ccc', 'center');
   btn('ОК', W/2-100, H*.7, 200, 55, ()=>S='menu', '#555');
 }
 function adminScreen(){
@@ -437,80 +495,43 @@ function recordsScreen(){
   btn('ОК', W/2-100, H*.8, 200, 55, ()=>S='menu', '#555');
 }
 
-// ===== МЕНЮ (ОБНОВЛЕННОЕ) =====
+// ===== ТАЙМЕР =====
+function getTimeLeft() {
+    let now = new Date().getTime(); let diff = releaseTarget - now; if (diff < 0) diff = 0;
+    let d = Math.floor(diff / (1000 * 60 * 60 * 24)); let h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); let s = Math.floor((diff % (1000 * 60)) / 1000);
+    return { d, h, m, s, diff };
+}
+
+// ===== МЕНЮ =====
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
   txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
   txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.12,Math.min(14,W*.025),'#fff','center');
-  
   txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left');
   txt('В СЕТИ: ' + onlinePlayersCount, W - 20, H - 20, 14, '#0f0', 'right');
 
-  // Сетка райдеров (слева)
-  const cardW = W*0.09;
-  const cardH = H*0.15;
-  const startX = 20;
-  const startY = H*0.18;
-  
+  const cardW = W*0.07; const cardH = H*0.12; const startX = 15; const startY = H*0.18;
   RD.forEach((r,i)=>{
-    let col = i % 4;
-    let row = Math.floor(i / 4);
-    let x = startX + col * (cardW + 5);
-    let y = startY + row * (cardH + 5);
-    
-    g.fillStyle = i===R ? '#3a5a7a' : '#223';
-    g.fillRect(x, y, cardW, cardH);
-    g.strokeStyle = i===R ? r.col : '#555';
-    g.lineWidth = i===R ? 3 : 1;
-    g.strokeRect(x, y, cardW, cardH);
-    
-    g.fillStyle=r.col;
-    g.beginPath();g.arc(x+cardW/2, y+cardH*0.3, Math.min(12,cardH*0.15), 0, 7);g.fill();
-    
-    txt(r.n, x+cardW/2, y+cardH*0.6, Math.min(13,cardW*0.2), '#fff', 'center');
-    txt(r.t, x+cardW/2, y+cardH*0.8, Math.min(9,cardW*0.15), r.col, 'center');
-    
+    let col = i % 4; let row = Math.floor(i / 4); let x = startX + col * (cardW + 5); let y = startY + row * (cardH + 5);
+    g.fillStyle = i===R ? '#3a5a7a' : '#223'; g.fillRect(x, y, cardW, cardH);
+    g.strokeStyle = i===R ? r.col : '#555'; g.lineWidth = i===R ? 3 : 1; g.strokeRect(x, y, cardW, cardH);
+    g.fillStyle=r.col; g.beginPath();g.arc(x+cardW/2, y+cardH*0.3, Math.min(10,cardH*0.15), 0, 7);g.fill();
+    txt(r.n, x+cardW/2, y+cardH*0.6, Math.min(11,cardW*0.2), '#fff', 'center');
+    txt(r.t, x+cardW/2, y+cardH*0.8, Math.min(8,cardW*0.15), r.col, 'center');
     btns.push({x, y, w:cardW, h:cardH, f:()=>{R=i; save();}});
   });
 
-  // Превью выбранного райдера (справа)
-  const previewX = W*0.7;
-  const previewY = H*0.45;
+  const previewX = W*0.65; const previewY = H*0.4;
+  g.fillStyle='rgba(0,0,0,0.3)'; g.fillRect(W*0.55, H*0.15, W*0.4, H*0.45); g.strokeStyle='#555'; g.lineWidth=1; g.strokeRect(W*0.55, H*0.15, W*0.4, H*0.45);
+  g.save(); g.translate(previewX, previewY); g.scale(2.0, 2.0);
+  let rg = RD[R].g; let previewConfig = {frameCol: rg.b, rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'}; let customGear = {j: rg.j, p: rg.p, h: rg.h, rb: rg.rb, showHelmet: previewHelmet};
+  drawBike(0, 0, true, previewConfig, {}, false, customGear); g.restore();
+  btn(previewHelmet ? 'СНЯТЬ ШЛЕМ' : 'НАДЕТЬ ШЛЕМ', previewX - 50, previewY + 80, 100, 30, ()=>{previewHelmet = !previewHelmet;}, previewHelmet ? '#c33' : '#2a7');
+
+  const bw=Math.min(180,(W-40)/2-8), bh=Math.min(48,H*.075); const row1y = H*0.65;
+  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{ if(useCf && cf || useCf && asm2.done) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { say('Мало МЕТ!'); } } else { if(!tutorialDone)startAssemble(); else startLoading(start); } },'#2a7');
   
-  // Фон превью
-  g.fillStyle='rgba(0,0,0,0.3)';
-  g.fillRect(W*0.55, H*0.18, W*0.4, H*0.45);
-  g.strokeStyle='#555'; g.lineWidth=1;
-  g.strokeRect(W*0.55, H*0.18, W*0.4, H*0.45);
-
-  // Рисуем райдера и байк
-  g.save();
-  g.translate(previewX, previewY);
-  g.scale(2.5, 2.5);
-  let rg = RD[R].g;
-  let previewConfig = {frameCol: rg.b, rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'};
-  let customGear = {j: rg.j, p: rg.p, h: rg.h, rb: rg.rb, showHelmet: previewHelmet};
-  drawBike(0, 0, true, previewConfig, {}, false, customGear);
-  g.restore();
-
-  // Кнопка снятия шлема
-  btn(previewHelmet ? 'СНЯТЬ ШЛЕМ' : 'НАДЕТЬ ШЛЕМ', W*0.55 + W*0.1, H*0.65, W*0.2, 30, ()=>{previewHelmet = !previewHelmet;}, previewHelmet ? '#c33' : '#2a7');
-
-  // Кнопка ИГРАТЬ
-  const bw=Math.min(180,(W-40)/2-8), bh=Math.min(48,H*.075);
-  const row1y = H*0.68;
-  btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{
-      if(useCf && cf || useCf && asm2.done) {
-          if(M >= 10) { M -= 10; save(); startLoading(start); } 
-          else { say('Нужно 10 МЕТ для кастомного велика!'); }
-      } else {
-          if(!tutorialDone)startAssemble();
-          else startLoading(start);
-      }
-  },'#2a7');
-  
-  // Ряд 2 (кнопки)
-  const row2y=row1y+bh+10,bw2=Math.min(85,(W-30)/8-5),row2x=(W-bw2*8-7*5)/2;
+  const row2y=row1y+bh+10,bw2=Math.min(70,(W-30)/8-5),row2x=(W-bw2*8-7*5)/2;
   btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a'); 
   btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62'); 
   btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
@@ -520,119 +541,91 @@ function menu(){
   btn('ДЁРТ',row2x+(bw2+5)*6,row2y,bw2,bh,()=>{ dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 }; startLoading(()=>{ S='dirt'; }); },'#a63');
   btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
   
-  // Ряд 3 (Релиз и Рекорды)
   const row3y=row2y+bh+10;
-  btn('КОМНАТА РЕЛИЗА',(W-Math.min(280,W*.55))/2,row3y,Math.min(280,W*.55),bh*.85,()=>S='releaseRoom','#d90000');
-  btn('ТРАССА: '+TR[tr].n,(W-Math.min(280,W*.55))/2,row3y+bh*.85+8,Math.min(280,W*.55),bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
+  btn('ДУЭЛЬ (PvP)', (W-280)/2, row3y, 130, bh*.85, ()=>{ showDuelMenu(); }, '#f0f');
+  btn('КОМНАТА РЕЛИЗА', (W-280)/2 + 140, row3y, 140, bh*.85, ()=>S='releaseRoom','#d90000');
   
-  // Правый нижний угол (уменьшенные кнопки)
-  btn('РЕЛИЗ', W-90, H-130, 80, 30, ()=>S='release', '#e01'); 
-  btn('РЕК', W-90, H-95, 80, 30, ()=>S='records', '#f60');
-  btn('ОБНОВ', W-90, H-60, 80, 30, ()=>S='patch', '#357'); 
-  btn('КОД',W-90,H-25,80,20,()=>{openCodeUI()},'#0aa');
+  const row4y = row3y + bh*.85 + 8;
+  btn('ТРАССА: '+TR[tr].n,(W-Math.min(280,W*.55))/2,row4y,Math.min(280,W*.55),bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
+
+  const rightBtnX = W - 95;
+  btn('РЕЛИЗ', rightBtnX, H-165, 85, 28, ()=>S='release', '#e01'); 
+  btn('РЕКОРДЫ', rightBtnX, H-132, 85, 28, ()=>S='records', '#f60');
+  btn('ОБНОВ', rightBtnX, H-99, 85, 28, ()=>S='patch', '#357'); 
+  btn('ВВЕСТИ КОД',rightBtnX,H-66,85,28,()=>{openCodeUI()},'#0aa');
   
   if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
 }
 
-// ===== КОМНАТА РЕЛИЗА =====
-function releaseRoom(){
-  const w=W, h=H;
-  g.fillStyle='#0a0a15'; g.fillRect(0,0,w,h);
+// ===== РЕЖИМ ДУЭЛИ =====
+function duelMode(dt){
+  const fs=Math.min(3,dt*60);
+  while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
+  while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
+  const pStats=partsStats(); let vmax = BK[B].v + (cfS() + pStats.sp)*5;
+  if(B === 12) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 40 : 25;
+  else if(B === 11) vmax = 40;
+
+  const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-20,gasCY=H-btnR-25,brakeCX=btnR+20,brakeCY=H-btnR-25,jumpCX=W/2,jumpCY=H-btnR-25,trickCX=W/2+(btnR+20),trickCY=H-btnR-25;
+  let isBraking=false;
   
-  let now = new Date().getTime(), diff = releaseTarget - now;
-  
-  if (diff > 0) {
-      txt('КОМНАТА РЕЛИЗА ЗАКРЫТА', w/2, h*0.4, 24, '#f55', 'center');
-      let d = Math.floor(diff / (1000 * 60 * 60 * 24)), hr = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)), m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)), s = Math.floor((diff % (1000 * 60)) / 1000);
-      txt(`ДО ОТКРЫТИЯ: ${d}д ${hr}ч ${m}м ${s}с`, w/2, h*0.5, 20, '#fff', 'center');
-      btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
-      return;
-  }
-
-  const grd = g.createRadialGradient(w/2, h/2, 50, w/2, h/2, w*0.8);
-  grd.addColorStop(0, 'rgba(255, 0, 0, 0.3)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = grd; g.fillRect(0,0,w,h);
-
-  g.fillStyle = '#222'; g.fillRect(0, h*0.7, w, h*0.3);
-  g.fillStyle = '#d90000'; g.fillRect(0, h*0.7-20, w, 20);
-
-  g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillRect(w*0.1, 20, w*0.8, 80);
-  g.strokeStyle = '#fc0'; g.lineWidth = 3; g.strokeRect(w*0.1, 20, w*0.8, 80);
-  txt(releaseText, w/2, 70, Math.min(24, (w*0.8 / releaseText.length) * 1.8), '#0f0', 'center');
-
-  let djX = w*0.5, djY = h*0.7;
-  g.lineWidth = 20; g.strokeStyle = '#ccc'; g.beginPath(); g.moveTo(djX, djY-100); g.lineTo(djX, djY-20); g.stroke();
-  g.fillStyle = '#0033cc'; g.fillRect(djX-15, djY-90, 30, 60); 
-  g.fillStyle = '#0033cc'; g.beginPath(); g.arc(djX, djY-120, 25, Math.PI, Math.PI*2); g.fill();
-  g.fillStyle = '#e10600'; g.beginPath(); g.moveTo(djX, djY-140); g.lineTo(djX-15, djY-155); g.lineTo(djX+15, djY-155); g.fill();
-  g.fillStyle = '#111'; g.fillRect(djX-15, djY-125, 30, 10);
-  g.strokeStyle = '#e8b48a'; g.lineWidth = 10; g.beginPath(); g.moveTo(djX-10, djY-80); g.lineTo(djX-50, djY-40); g.stroke(); g.beginPath(); g.moveTo(djX+10, djY-80); g.lineTo(djX+50, djY-40); g.stroke();
-  g.fillStyle = '#333'; g.fillRect(djX-80, djY-40, 160, 40);
-  g.fillStyle = '#ff0'; g.beginPath(); g.arc(djX-50, djY-20, 15, 0, Math.PI*2); g.fill();
-  g.fillStyle = '#0f0'; g.beginPath(); g.arc(djX+50, djY-20, 15, 0, Math.PI*2); g.fill();
-
-  if (isDevOnStage) {
-      g.save(); g.translate(w/2, h*0.7); g.scale(5, 5); drawBike(0, 0, true, undefined, {}, false); g.restore();
-      txt('НИКОЛАЙ РАЗРАБОТЧИК', w/2, h*0.7 - 200, 24, '#fc0', 'center');
-  }
-
-  btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
-  
-  if (isDevMode) {
-      btn('ИЗМЕНИТЬ ТЕКСТ', w-160, h-60, 150, 44, ()=>{ document.getElementById('release-text-input').value = releaseText; document.getElementById('text-overlay').style.display = 'flex'; }, '#357');
-      btn(isDevOnStage ? 'УЙТИ СО СЦЕНЫ' : 'ВЫЙТИ НА СЦЕНУ', w/2-100, h*0.7+20, 200, 50, ()=>{ socket.emit('stageStatus', !isDevOnStage); }, isDevOnStage ? '#e33' : '#2a7');
-  }
-}
-
-// ===== РЕЖИМ ДЁРТ =====
-function dirtModeFunc(dt){
-  const fs = Math.min(3, dt*60); const w=W, h=H; const groundY = h * 0.75;
-  if (dirtMode.state === 'walk') { if (heldCircle(w*0.2, h*0.8, 50)) dirtMode.px -= 100 * dt; if (heldCircle(w*0.8, h*0.8, 50)) dirtMode.px += 100 * dt; }
-  else if (dirtMode.state === 'ride') {
-      if (!dirtMode.air) {
-          const gas = heldCircle(w*0.8, h*0.8, 50), brake = heldCircle(w*0.2, h*0.8, 50);
-          if(gas) dirtMode.vx += 150 * dt; else if(brake) dirtMode.vx -= 200 * dt; else dirtMode.vx *= 0.98;
-          dirtMode.vx = Math.max(0, Math.min(300, dirtMode.vx)); dirtMode.px += dirtMode.vx * dt;
-          dirtMode.ramps.forEach(r => { if (Math.abs(dirtMode.px - r.x) < 20 && dirtMode.vx > 100) { dirtMode.air = true; dirtMode.vy = -15; dirtMode.rot = 0; dirtMode.vx = dirtMode.vx * 1.2; trick = {name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}; } });
-      } else {
-          dirtMode.vy += 30 * dt; dirtMode.px += dirtMode.vx * dt;
-          if (heldCircle(w*0.2, h*0.8, 50)) dirtMode.rot -= 5 * dt; if (heldCircle(w*0.8, h*0.8, 50)) dirtMode.rot += 5 * dt;
-          if (dirtMode.vy > 0 && dirtMode.px > dirtMode.ramps[0].x + 150) {
-              dirtMode.air = false; dirtMode.vy = 0; let landAngle = dirtMode.rot % (Math.PI*2); let safe = false;
-              if (landAngle > -0.5 && landAngle < 0.5) safe = true; if (Math.abs(landAngle) > 5.5 && Math.abs(landAngle) < 6.8) safe = true;
-              if (safe) { let bonus = 50; if (Math.abs(landAngle) > 5.5) bonus = 100; if (trick.name) bonus += 50; $ += bonus; say('УДАЧНО! +' + bonus + '$'); save(); } else { say('УПАЛ!'); dirtMode.state = 'walk'; dirtMode.vx = 0; }
-              dirtMode.rot = 0;
-          }
+  if(!cr){
+    if(!P.air){ const gas=heldCircle(gasCX,gasCY,btnR),brake=heldCircle(brakeCX,brakeCY,btnR); isBraking = brake; if(gas&&!brake)P.vx+=vmax*.025*fs; else if(brake&&!gas)P.vx-=vmax*.045*fs; else P.vx*=Math.pow(.985,fs); P.vx=Math.max(0,Math.min(vmax,P.vx)) }
+    P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
+    rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);
+    if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl}
+    else{
+      P.vy+=.4*fs;P.y+=P.vy*fs; const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0); P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());
+      if(P.y>=gy&&P.vy>0){
+        P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));
+        if(Math.abs(d-sl)>1.5) { cr=1; cv=Math.max(P.vx,2)*1.1; rX=P.x+30; }
+        P.tot=0;
       }
+    }
+    if(P.x > duelState.target*10 && !cr) { finishDuel(socket.id, 'Оппонент'); }
+  }else{cv*=.93;P.x+=cv*fs;rX+=cv*fs}
+  
+  if(Date.now() - lastNetEmit > 50 && socket.connected) { let relY = P.y - T(P.x); socket.emit('playerMove', { x: P.x, y: relY, a: P.a, air: P.air, nick: myNick }); lastNetEmit = Date.now(); }
+  const cx=P.x-W*.35; drawBeautifulSky(cx);drawBeautifulTerrain(cx);
+  
+  // Финишная черта
+  let finishX = duelState.target*10 - cx;
+  if(finishX > -50 && finishX < W+50) {
+      for(let i=0;i<H;i+=40){g.fillStyle='#000';g.fillRect(finishX,i,10,20);g.fillStyle='#fff';g.fillRect(finishX,i+20,10,20)}
+      txt('ФИНИШ (500м)', finishX+15, H/2, 20, '#000');
   }
-  drawBeautifulSky(dirtMode.px - W/2); g.fillStyle='#5a3d1f';g.fillRect(0, groundY, w, h-groundY); g.fillStyle='#3fa34d';g.fillRect(0, groundY-10, w, 10);
-  dirtMode.ramps.forEach(r => { let sx = r.x - (dirtMode.px - W/2); if (sx > -100 && sx < w + 100) { g.fillStyle = '#8b5a2b'; g.beginPath(); g.moveTo(sx - 50, groundY); g.lineTo(sx, groundY - 60); g.lineTo(sx + 50, groundY); g.fill(); g.fillStyle = '#5a3d1f'; g.fillRect(sx-40, groundY-10, 80, 10); } });
-  let pSX = dirtMode.px - (dirtMode.px - W/2); if (pSX < 50) pSX = 50;
-  g.save(); g.translate(pSX, groundY);
-  if (dirtMode.state === 'walk' || dirtMode.state === 'dig') {
-      g.strokeStyle = '#fff'; g.lineWidth = 4; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(0,0); g.lineTo(-10, 20); g.stroke(); g.beginPath(); g.moveTo(0,0); g.lineTo(10, 20); g.stroke(); g.beginPath(); g.moveTo(0,0); g.lineTo(0,-30); g.stroke();
-      if (dirtMode.state === 'dig') {
-          dirtMode.digTimer += dt; let swing = Math.sin(dirtMode.digTimer * 10) * 0.5;
-          g.save(); g.translate(0, -20); g.rotate(swing); g.beginPath(); g.moveTo(0,0); g.lineTo(20, 10); g.stroke(); g.fillStyle = '#ccc'; g.fillRect(20, 10, 5, 15); g.restore();
-          if (dirtMode.digTimer > 1.0) { dirtMode.state = 'walk'; dirtMode.digTimer = 0; dirtMode.ramps.push({ x: dirtMode.px + 100 }); $ += 5; say('+5$ за трамплин!'); save(); }
-      } else { g.beginPath(); g.moveTo(0,-20); g.lineTo(-10, 0); g.stroke(); g.beginPath(); g.moveTo(0,-20); g.lineTo(10, 0); g.stroke(); }
-      g.fillStyle = '#e8b48a'; g.beginPath(); g.arc(0, -40, 8, 0, 7); g.fill();
-  } else { g.rotate(dirtMode.rot); g.scale(SC, SC); drawBike(0, 0, true, undefined, trick, false); }
-  g.restore();
-  txt('РЕЖИМ: ДЁРТ', 15, 30, 20, '#fff'); txt('$' + Math.floor($), 15, 60, 18, '#0f0');
-  if (dirtMode.state === 'walk') {
-      txt('НАЖМИ "КОПАТЬ" (+5$)', w/2, 30, 16, '#fc0', 'center');
-      circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true);
-      btn('КОПАТЬ', w/2-80, h-80, 160, 50, ()=>{ dirtMode.state = 'dig'; dirtMode.digTimer = 0; }, '#a62'); btn('СЕСТЬ НА ВЕЛ', w/2-100, 80, 200, 40, ()=>{ dirtMode.state = 'ride'; }, '#357'); btn('В МЕНЮ', 10, h-60, 100, 40, ()=>{ save(); S='menu'; }, '#555');
-  } else if (dirtMode.state === 'dig') { txt('КОПАЕМ...', w/2, 30, 24, '#a62', 'center'); }
-  else if (dirtMode.state === 'ride') {
-      if (!dirtMode.air) { txt('РАЗГОНЯЙСЯ!', w/2, 30, 16, '#fc0', 'center'); circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true); btn('СЛЕЗТЬ', 10, h-60, 100, 40, ()=>{ dirtMode.state = 'walk'; dirtMode.vx = 0; dirtMode.air = false; }, '#555'); }
-      else { txt('ДЕЛАЙ ТРЮК!', w/2, 30, 20, '#e70', 'center'); txt('+100$', w/2, 55, 14, '#fff', 'center'); circleBtn(w*0.2, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1), null, true); circleBtn(w*0.8, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1), null, true); }
+
+  rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});
+  
+  // Отрисовка оппонента
+  if(opponents[duelState.opponentId]) {
+      let opp = opponents[duelState.opponentId];
+      let oppSX = opp.x - cx;
+      if(oppSX > -100 && oppSX < W + 100){
+          g.save(); let oppY = T(opp.x) + opp.y; g.translate(oppSX, oppY); g.rotate(opp.a || 0); g.scale(SC, SC);
+          let ghostCfg = {frameCol:'#f0f', rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'}; // Розовый оппонент
+          drawBike(0, opp.x, true, ghostCfg, {}, false); g.restore(); txt(opp.nick, oppSX, oppY - 65, 12, '#fff', 'center');
+      }
+      // Если он доехал
+      if(opp.x > duelState.target*10 && !cr) { finishDuel(duelState.opponentId, myNick); }
+  }
+
+  if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isBraking);g.restore();}
+  else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore(); const s3=Math.atan2(T(rX+40)-T(rX-40),80);g.save();g.translate(rX-cx,T(rX));g.rotate(s3);g.scale(SC,SC);drawLying();g.restore()}
+  
+  txt('ДУЭЛЬ НА $'+duelState.bet, W/2, 30, 20, '#f0f', 'center');
+  txt('До финиша: ' + Math.max(0, duelState.target - Math.floor(P.x/10)) + ' м', W/2, 55, 16, '#fff', 'center');
+
+  if(!cr){
+    if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
+    else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
+    btn('СДАТЬСЯ',W-100,10,90,40,()=>{ finishDuel(duelState.opponentId, myNick); },'#b33');
+  }else if(cr>40){
+    finishDuel(duelState.opponentId, myNick);
   }
 }
 
-// ===== МАСТЕРСКИЕ =====
+// ===== МАСТЕРСКИЕ И ГАРАЖ (СОКРАЩЕНО) =====
 function workshop2(){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('МАСТЕРСКАЯ 2.0',W/2,44,Math.min(22,W*.045),'#3c9','center');
   if(asm2.done){ txt('ВЕЛИК СОБРАН!', W/2, H*.3, 30, '#0f0', 'center'); txt('Макс. скорость: 150 км/ч', W/2, H*.4, 18, '#fff', 'center'); txt('Стоимость: 10 МЕТ', W/2, H*.48, 18, '#fc0', 'center'); if(useCf) btn('СНЯТЬ С ГОНКИ', W/2-150, H*.65, 300, 60, ()=>{useCf=false;save()}, '#b33'); else btn('ПОСТАВИТЬ НА ГОНКУ', W/2-150, H*.65, 300, 60, ()=>{useCf=true;save()}, '#2a7'); }
@@ -683,13 +676,15 @@ function stunt(dt){
   } else if(cr>40){ g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); btn('ЗАНОВО',w/2-160,h/2+50,150,50,()=>{cr=0;P={x:0,y:0,a:0,stuntSpeed:0};stuntPoints=0},'#e0e'); btn('МЕНЮ',w/2+10,h/2+50,150,50,()=>{save();S='menu'},'#555'); }
 }
 
-// ===== ЕЗДА =====
+// ===== ОБЫЧНАЯ ЕЗДА =====
 function ride(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
   while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
-  const pStats=partsStats(); let vmax = (3 + RD[R].s*.4) * (1 + fr*.1) * (1 + BK[B].sp*.06 + cfS() + pStats.sp);
-  if(B === 12) { if(ownedParts.super_upg && ownedParts.super_upg[1]) { vmax = 40; } else { vmax = 25; } } else if(B === 11) { vmax = 10; }
+  const pStats=partsStats(); let vmax = BK[B].v + (cfS() + pStats.sp)*5;
+  if(B === 12) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 40 : 25;
+  else if(B === 11) vmax = 40;
+
   const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-20,gasCY=H-btnR-25,brakeCX=btnR+20,brakeCY=H-btnR-25,jumpCX=W/2,jumpCY=H-btnR-25,trickCX=W/2+(btnR+20),trickCY=H-btnR-25;
   let isBraking=false;
   if(!cr){
@@ -747,7 +742,7 @@ function ride(dt){
 function drawMissions(){g.fillStyle='rgba(0,0,0,0.6)';g.fillRect(10, 65, 155, 85);txt('МИССИИ', 15, 80, 11, '#fc0');const list=[{k:'flip5',label:'5 флипов'},{k:'trick10',label:'10 трюков'},{k:'dist1000',label:'1000м'},{k:'metal20',label:'20 мет.'}];list.forEach((m,i)=>{const msn=missions[m.k];const y=95+i*13;txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need, 15, y, 9, msn.done?'#0f0':'#fff');});}
 function checkMissions(){ if(!missions.flip5.done&&missions.flip5.prog>=5){missions.flip5.done=true;unlocked.foxHelmet=true;say('МИССИЯ: FOX ШЛЕМ +$3000!');$+=3000;save();} if(!missions.trick10.done&&missions.trick10.prog>=10){missions.trick10.done=true;unlocked.foxChest=true;say('МИССИЯ: FOX ГРУДЬ +$3000!');$+=3000;save();} if(!missions.dist1000.done&&missions.dist1000.prog>=1000){missions.dist1000.done=true;unlocked.foxPants=true;say('МИССИЯ: FOX ШТАНЫ +$3000!');$+=3000;save();} if(!missions.metal20.done&&missions.metal20.prog>=20){missions.metal20.done=true;$+=5000;say('МИССИЯ: +$5000!');save();} }
 
-// ===== МАГАЗИН И ГАРАЖ =====
+// ===== МАГАЗИН И ГАРАЖ (КОНЕЦ) =====
 function garage(){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРАЖ',W/2,44,Math.min(22,W*.045),'#e70','center'); txt('$'+Math.floor($)+'  МЕТ '+M,20,70,14,'#fc0');
   if(own[10] && !superBikeUnlocked) { superBikeUnlocked = true; own[12] = 1; save(); alert('ВЫ КУПИЛИ MTB 2016-12! СУПЕР-БАЙК РАЗБЛОКИРОВАН!'); }
@@ -788,15 +783,12 @@ function loop(now){
   rs(); now=now||performance.now(); const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now; fpsCount++; if(now-fpsTime>1000){fps=fpsCount;fpsCount=0;fpsTime=now}
   const s=settings.scale,dpr=Math.min(window.devicePixelRatio||1,3); g.setTransform(dpr*s,0,0,dpr*s,W/2*dpr*(1-s),H/2*dpr*(1-s)); btns=[];
   
-  if(S === 'releaseRoom' && Date.now() >= releaseTarget) {
-      document.getElementById('chat-wrapper').style.display = 'flex';
-  } else {
-      document.getElementById('chat-wrapper').style.display = 'none';
-  }
+  if(S === 'releaseRoom' && Date.now() >= releaseTarget) { document.getElementById('chat-wrapper').style.display = 'flex'; } 
+  else { document.getElementById('chat-wrapper').style.display = 'none'; }
 
   try{
     if(loading.on){loading.p=Math.min(1,loading.p+dt*1.5);if(loading.p>=1){loading.on=false;const cb=loading.cb;loading.cb=null;try{if(cb)cb()}catch(e){S='menu'}}drawLoading()}
-    else if(S==='splash')splash(); else if(S==='menu')menu(); else if(S==='patch')patchNotes(); else if(S==='release')releaseScreen(); else if(S==='admin')adminScreen(); else if(S==='records')recordsScreen(); else if(S==='settings')settings_screen(); else if(S==='dirt')dirtModeFunc(dt); else if(S==='ride')ride(dt); else if(S==='stunt')stunt(dt); else if(S==='rb')rb(dt); else if(S==='rbMenu')rbMenu(); else if(S==='shop')shop(); else if(S==='garage')garage(); else if(S==='workshop')workshop(); else if(S==='workshop2')workshop2(); else if(S==='dress')dress(); else if(S==='assemble')assemble(dt); else if(S==='releaseRoom')releaseRoom(); else menu();
+    else if(S==='splash')splash(); else if(S==='menu')menu(); else if(S==='patch')patchNotes(); else if(S==='release')releaseScreen(); else if(S==='admin')adminScreen(); else if(S==='records')recordsScreen(); else if(S==='settings')settings_screen(); else if(S==='dirt')dirtModeFunc(dt); else if(S==='ride')ride(dt); else if(S==='duel')duelMode(dt); else if(S==='stunt')stunt(dt); else if(S==='rb')rb(dt); else if(S==='rbMenu')rbMenu(); else if(S==='shop')shop(); else if(S==='garage')garage(); else if(S==='workshop')workshop(); else if(S==='workshop2')workshop2(); else if(S==='dress')dress(); else if(S==='assemble')assemble(dt); else if(S==='releaseRoom')releaseRoom(); else menu();
   }catch(e){}
   if(settings.showFps){ g.fillStyle='rgba(0,0,0,.5)';g.fillRect(W-60,6,54,20); g.fillStyle='#0f0';g.font='bold 12px monospace';g.textAlign='right';g.textBaseline='middle'; g.fillText(fps+' FPS',W-8,16); }
   requestAnimationFrame(loop);

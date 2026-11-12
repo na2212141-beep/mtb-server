@@ -1,4 +1,8 @@
-<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><style>
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;-webkit-user-select:none;user-select:none;position:fixed;overscroll-behavior:none}
 #game-wrap{position:absolute;top:env(safe-area-inset-top,0px);left:env(safe-area-inset-left,0px);width:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));transform-origin:top left}
@@ -18,15 +22,24 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;width:100%;heig
 #chat-input-area{display:flex;width:200px;pointer-events:auto}
 #chat-input{flex:1;padding:5px;font-size:11px;border:1px solid #fc0;background:rgba(0,0,0,0.8);color:#fff;outline:none}
 #chat-send{background:#fc0;color:#000;border:none;padding:5px 10px;font-weight:bold;cursor:pointer}
-</style><script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script></head><body>
+</style>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
 <div id="game-wrap"><canvas id="c"></canvas></div>
 <div id="chat-wrapper"><div id="chat-messages"></div><div id="chat-input-area"><input type="text" id="chat-input" placeholder="Чат..." maxlength="30" onkeydown="if(event.key==='Enter')sendChat()"><button id="chat-send" onclick="sendChat()">></button></div></div>
-<div id="policy-overlay"><div style="color:#fc0;font-size:26px;margin-bottom:15px;font-weight:bold;">ПРАВИЛА</div><div style="color:#fff;font-size:16px;margin-bottom:15px;">Закрывайте вкладку при обновлениях!<br><br>TikTok:<br><a href="https://www.tiktok.com/@mtb_stitio" target="_blank" style="color:#0f0;font-size:22px;text-decoration:none;display:inline-block;margin-top:10px;">@mtb_stitio</a></div><button class="btn-green" onclick="document.getElementById('policy-overlay').style.display='none'">Я ПОНЯЛ</button></div>
+<div id="policy-overlay">
+    <div style="color:#fc0;font-size:26px;margin-bottom:15px;font-weight:bold;">ПРАВИЛА</div>
+    <div style="color:#fff;font-size:16px;margin-bottom:15px;">Закрывайте вкладку при обновлениях!<br><br>Мой TikTok:<br>
+    <a href="https://vt.tiktok.com/ZSp9fShmw/" target="_blank" style="color:#ff0050;font-size:22px;text-decoration:none;display:inline-block;margin-top:10px;font-weight:bold;text-shadow: 0 0 10px #ff0050;">🎬 СМОТРЕТЬ ВИДЕО</a></div>
+    <button class="btn-green" onclick="document.getElementById('policy-overlay').style.display='none'">Я ПОНЯЛ</button>
+</div>
 <div id="nick-overlay"><div style="color:#fc0;font-size:28px;margin-bottom:10px;font-weight:bold;">ВВЕДИ НИК</div><div style="color:#ccc;font-size:14px;margin-bottom:25px;">Мат запрещен!</div><input type="text" id="nick-input" autocomplete="off" spellcheck="false" placeholder="Твой ник..." maxlength="15"><button class="btn-green" onclick="submitNick()">ПОДТВЕРДИТЬ</button></div>
 <div id="text-overlay"><div style="color:#fff;font-size:20px;margin-bottom:15px;">ВВЕДИ ТЕКСТ ДЛЯ ВСЕХ:</div><input type="text" id="release-text-input" autocomplete="off" maxlength="50"><div><button class="btn-green" onclick="sendReleaseText()">ОТПРАВИТЬ</button><button class="btn-red" onclick="document.getElementById('text-overlay').style.display='none'">ОТМЕНА</button></div></div>
 <div id="duel-overlay"><div style="color:#f55;font-size:26px;margin-bottom:15px;font-weight:bold;">ВЫЗОВ НА ДУЭЛЬ!</div><div style="color:#fff;font-size:18px;margin-bottom:20px" id="duel-info-text">Игрок X хочет сразиться!</div><div><button class="btn-green" onclick="acceptDuel()">ПРИНЯТЬ</button><button class="btn-red" onclick="declineDuel()">ОТКЛОНИТЬ</button></div></div>
 <div id="code-overlay"><div style="color:#fff;margin-bottom:15px;font-size:18px;">ВВЕДИТЕ КОД</div><input type="text" id="code-input" autocomplete="off" spellcheck="false" placeholder="КОД"><div><button class="btn-green" onclick="submitCode()">ОК</button><button class="btn-red" onclick="closeCodeUI()">ОТМЕНА</button></div></div>
 <div id="warn-overlay"><div style="color:#f55;font-size:24px;margin-bottom:15px;font-weight:bold;">⚠ ВНИМАНИЕ ⚠</div><div style="color:#fff;font-size:16px;margin-bottom:30px;">Код уже был использован. Подтвердить?</div><div><button class="btn-green" onclick="confirmDevAccess()">ДА</button><button class="btn-red" onclick="rejectDevAccess()">НЕТ</button></div></div>
+
 <script>
 const c=document.getElementById('c'),g=c.getContext('2d',{alpha:false}),wrap=document.getElementById('game-wrap');g.imageSmoothingEnabled=false;
 
@@ -55,22 +68,22 @@ let myNick=localStorage.getItem('mtb_nick')||'';const BAD=['хуй','хуя','п
 function submitNick(){let v=document.getElementById('nick-input').value.trim();if(v.length<3)return alert("Мин. 3 буквы!");let c=v.toLowerCase().replace(/[^a-zа-яё0-9]/gi,'');for(let w of BAD)if(c.includes(w))return alert("Мат запрещен!");myNick=v;localStorage.setItem('mtb_nick',myNick);document.getElementById('nick-overlay').style.display='none';if(socket.connected)socket.emit('getData',myNick)}
 if(myNick){document.getElementById('nick-overlay').style.display='none';setTimeout(()=>{if(socket.connected)socket.emit('getData',myNick)},1000)}
 
-// Ресайз и UI (Планшет/Телефон)
+// Ресайз и UI
 let W=800,H=500,isRotated=false,lastW=0,lastH=0,lastRot=false,isTablet=false;
 function rs(){
     const p=window.innerHeight>window.innerWidth;
     const w=p?window.innerHeight:window.innerWidth,h=p?window.innerWidth:window.innerHeight;
     if(w===lastW&&h===lastH&&p===lastRot)return;lastW=w;lastH=h;lastRot=p;isRotated=p;
-    isTablet = w >= 768 || h >= 768; // Проверка на планшет
+    isTablet = w >= 768 || h >= 768;
     if(p){wrap.classList.add('portrait');W=w;H=h}else{wrap.classList.remove('portrait');W=w;H=h}
     const d=Math.min(window.devicePixelRatio||1,3);c.width=Math.round(W*d);c.height=Math.round(H*d);g.setTransform(d,0,0,d,0,0);g.imageSmoothingEnabled=false;
 }
 rs();window.addEventListener('resize',rs);window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)});setInterval(rs,200);
 
-// Настройки и звук
+// Настройки и звук (Усилен для быстрого отклика)
 let settings={volume:0.5,scale:1.0,showFps:false};try{const d=JSON.parse(localStorage.getItem('mtb_settings'));if(d){settings.volume=d.volume||0.5;settings.scale=d.scale||1.0;settings.showFps=d.showFps||false}}catch(e){}
 function saveSettings(){try{localStorage.setItem('mtb_settings',JSON.stringify(settings))}catch(e){}}
-let audioCtx=null;function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+let audioCtx=null;function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}catch(e){}}
 function beep(f,d,v){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=f;const vol=v!==undefined?v:settings.volume;if(vol<=0)return;gn.gain.value=vol*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
 
 // Данные
@@ -98,9 +111,9 @@ let ownedParts={fork:[1,0,0,0,0],rim:[1,0,0],tire:[1,0,0,0],brake:[1,0,0,0],driv
 let garageTab='fork',loading={on:false,p:0,cb:null},trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0},lastTime=performance.now();
 let tutorialDone=false,asm={step:0,level:0,bolts:[],parts:[],pumps:0,helpTimer:0,rewarded:false},asmLevel=0,stuntPoints=0,stuntBest=0,rbLevel=1,rbDist=0,rbTarget=350,rbFinished=false;
 let fps=0,fpsCount=0,fpsTime=0;
-let isDevMode = localStorage.getItem('mtb_devmode') === 'true'; // Фикс админки
+let isDevMode = localStorage.getItem('mtb_devmode') === 'true';
 let usedCodes=[],devCodeUsed=false,pendingDevCode='',lastNetEmit=0,rbLives=5,asm2={step:0,done:false},superBikeUnlocked=false,previewHelmet=true;
-let releaseTarget=new Date('2026-11-13T18:30:00').getTime(); // Фикс таймера 2026
+let releaseTarget=new Date('2026-11-13T18:30:00').getTime();
 let deviceType=/Android/i.test(navigator.userAgent)?'Android':(/iPhone|iPad/i.test(navigator.userAgent)?'iOS':'PC');
 let dirtMode={state:'walk',px:0,vx:0,cam:0,digTimer:0,ramps:[],air:false,vy:0,rot:0};
 const SK='mtb_apk_final_multiplayer';
@@ -113,7 +126,7 @@ loadData();addEventListener('pagehide',save);addEventListener('visibilitychange'
 function openCodeUI(){document.getElementById('code-overlay').style.display='flex';document.getElementById('code-input').value='';document.getElementById('code-input').focus()}
 function closeCodeUI(){document.getElementById('code-overlay').style.display='none'}
 function submitCode(){
-    const input=document.getElementById('code-input').value.trim().toUpperCase(); // Фикс регистра
+    const input=document.getElementById('code-input').value.trim().toUpperCase();
     closeCodeUI();
     if(input==='MTB-DEV-99'||input==='MTB-TEST-01'){
         let conf=prompt("Код подтверждения:");
@@ -133,18 +146,28 @@ function confirmDevAccess(){document.getElementById('warn-overlay').style.displa
 function rejectDevAccess(){document.getElementById('warn-overlay').style.display='none';pendingDevCode='';alert('Отклонено.')}
 function activateDevCode(code){
     $=5000000;M=99999;own=BK.map(()=>1);ownedParts={fork:[1,1,1,1,1],rim:[1,1,1],tire:[1,1,1,1],brake:[1,1,1,1],drive:[1,1,1],cockpit:[1,1,1],super_upg:[1,1]};
-    isDevMode=true;devCodeUsed=true;localStorage.setItem('mtb_devmode','true'); // Фикс сохранения админки
+    isDevMode=true;devCodeUsed=true;localStorage.setItem('mtb_devmode','true');
     myNick='НИКОЛАЙ (АДМИН)';localStorage.setItem('mtb_nick',myNick);save();alert('КОД АКТИВИРОВАН!')
 }
 
-// Управление
+// Управление (Усиленное для быстрого отклика)
 function transformTouch(cx,cy){const s=settings.scale||1;let gx,gy;if(!isRotated){gx=cx;gy=cy}else{gx=cy;gy=H-cx}return[(gx-W/2)/s+W/2,(gy-H/2)/s+H/2]}
 function handleTap(cx,cy,id){
     const coords=transformTouch(cx,cy),px=coords[0],py=coords[1];ptr[id]=[px,py];
-    const pad=isTablet?30:20; // Увеличенный хитбокс для планшетов и телефонов
+    const pad=isTablet?45:35; // Увеличенный хитбокс для быстрого нажатия
     for(let i=btns.length-1;i>=0;i--){const b=btns[i];
-        if(b.cx!==undefined){if(Math.hypot(px-b.cx,py-b.cy)<=b.r+pad){if(b.onTap){beep(700,0.05);b.onTap();return}if(b.f&&!b.hold){beep(700,0.05);b.f();return}}}
-        else if(px>=b.x-pad&&px<=b.x+b.w+pad&&py>=b.y-pad&&py<=b.y+b.h+pad){if(b.onTap){beep(700,0.05);b.onTap();return}if(b.f){beep(700,0.05);b.f();return}}
+        if(b.cx!==undefined){
+            if(Math.hypot(px-b.cx,py-b.cy)<=b.r+pad){
+                if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){} // ВИБРАЦИЯ
+                if(b.onTap){beep(700,0.05);b.onTap();return}
+                if(b.f&&!b.hold){beep(700,0.05);b.f();return}
+            }
+        }
+        else if(px>=b.x-pad&&px<=b.x+b.w+pad&&py>=b.y-pad&&py<=b.y+b.h+pad){
+            if(navigator.vibrate)try{navigator.vibrate(15)}catch(e){} // ВИБРАЦИЯ
+            if(b.onTap){beep(700,0.05);b.onTap();return}
+            if(b.f){beep(700,0.05);b.f();return}
+        }
     }
 }
 function handleUp(id){delete ptr[id]}
@@ -232,11 +255,10 @@ function drawBike(k,wr,rid,cfg,trk,isBraking,customGear){
 }
 function drawLying(){const jc=gear.jersey,pc=gear.pants;g.lineCap='round';g.lineWidth=6;g.strokeStyle=pc;g.beginPath();g.moveTo(0,-6);g.lineTo(-11,-14);g.lineTo(-22,-4);g.stroke();g.lineWidth=9;g.strokeStyle=jc;g.beginPath();g.moveTo(0,-6);g.lineTo(22,-7);g.stroke();g.fillStyle=gear.fox?FOX_RED:gear.helmet;g.beginPath();g.arc(33,-9,9,0,7);g.fill()}
 
-// ФИКС КАРТ
 function drawBeautifulSky(camera){
     const w=W,h=H;
     const grd=g.createLinearGradient(0,0,0,h);
-    grd.addColorStop(0,TR[tr].sky); // Используем цвет карты
+    grd.addColorStop(0,TR[tr].sky);
     grd.addColorStop(1,'#a8d8ff');
     g.fillStyle=grd;g.fillRect(0,0,w,h);
     const sunX=w*.85,sunY=h*.18;g.fillStyle='rgba(255,255,180,.4)';g.beginPath();g.arc(sunX,sunY,w*.08,0,7);g.fill();g.fillStyle='#ffe066';g.beginPath();g.arc(sunX,sunY,w*.06,0,7);g.fill();
@@ -246,7 +268,7 @@ function drawBeautifulSky(camera){
 function drawBeautifulTerrain(camera){
     const w=W,h=H;
     g.fillStyle='#5a3d1f';g.beginPath();g.moveTo(0,h);for(let x=0;x<=w;x+=4)g.lineTo(x,T(camera+x));g.lineTo(w,h);g.fill();
-    g.fillStyle=TR[tr].gr; // Используем цвет травы карты
+    g.fillStyle=TR[tr].gr;
     g.beginPath();for(let x=0;x<=w;x+=4){const y=T(camera+x);if(x===0)g.moveTo(x,y);else g.lineTo(x,y)}for(let x=w;x>=0;x-=4)g.lineTo(x,T(camera+x)-6);g.fill()
 }
 
@@ -254,7 +276,7 @@ function drawLoading(){g.fillStyle='#0a0a15';g.fillRect(0,0,W,H);txt('MTB FREERI
 function splash(){const w=W,h=H;const grd=g.createLinearGradient(0,0,0,h);grd.addColorStop(0,'#0a0e27');grd.addColorStop(1,'#2a0a3a');g.fillStyle=grd;g.fillRect(0,0,w,h);const t=performance.now()*.001;for(let i=0;i<40;i++){const sx=(i*137+t*12)%w;const sy=(i*89+t*6)%(h*.55);const a=.3+.4*Math.sin(t*2+i);g.fillStyle='rgba(255,220,150,'+a+')';g.beginPath();g.arc(sx,sy,1.5,0,7);g.fill()}txt('MTB FREERIDE',w/2,h*.15,Math.min(44,w*.09),'#fc0','center');txt('2 0 2 4 E D I T I O N',w/2,h*.22,Math.min(16,w*.03),'#ffaa88','center');g.fillStyle='rgba(0,0,0,.5)';g.fillRect(w*.15,h*.32,w*.7,h*.35);g.strokeStyle='rgba(252,200,0,.5)';g.lineWidth=2;g.strokeRect(w*.15,h*.32,w*.7,h*.35);txt('РАЗРАБОТЧИК',w/2,h*.4,Math.min(14,w*.026),'#888','center');txt('MTB Studio',w/2,h*.46,Math.min(24,w*.05),'#fff','center');txt('Горный велосипед · Трюки · Трассы',w/2,h*.55,Math.min(14,w*.026),'#8cf','center');txt('v1.0 · Multiplayer Edition',w/2,h*.71,Math.min(11,w*.02),'#555','center');const bw=Math.min(280,w*.55),bh=Math.min(60,h*.1);btn('ПОНЯТНО',w/2-bw/2,h*.83,bw,bh,()=>{initAudio();S='menu'},'#2a7')}
 function settings_screen(){g.fillStyle='#1a2030';g.fillRect(0,0,W,H);backBtn('menu');txt('НАСТРОЙКИ',W/2,44,Math.min(28,W*.05),'#fc0','center');const sy=H*.25,lh=Math.min(80,H*.15);const c1=W*0.15,c2=W*0.45,c3=W*0.65,c4=W*0.75;const bh=Math.min(50,H*.08);txt('ЗВУК',c1,sy+bh/2+5,Math.min(18,W*.032),'#fff');btn('<',c2,sy,60,bh,()=>{settings.volume=Math.max(0,settings.volume-0.1);saveSettings()},'#555');txt(Math.round(settings.volume*100)+'%',c3,sy+bh/2+5,Math.min(18,W*.032),'#fc0','center');btn('>',c4,sy,60,bh,()=>{settings.volume=Math.min(1,settings.volume+0.1);saveSettings()},'#555');txt('МАСШТАБ',c1,sy+lh+bh/2+5,Math.min(18,W*.032),'#fff');btn('<',c2,sy+lh,60,bh,()=>{settings.scale=Math.max(0.7,settings.scale-0.1);saveSettings()},'#555');txt(Math.round(settings.scale*100)+'%',c3,sy+lh+bh/2+5,Math.min(18,W*.032),'#fc0','center');btn('>',c4,sy+lh,60,bh,()=>{settings.scale=Math.min(1.5,settings.scale+0.1);saveSettings()},'#555');txt('FPS',c1,sy+lh*2+bh/2+5,Math.min(18,W*.032),'#fff');btn(settings.showFps?'ВКЛ':'ВЫКЛ',c2,sy+lh*2,Math.min(140,W*.15),bh,()=>{settings.showFps=!settings.showFps;saveSettings()},settings.showFps?'#2a7':'#444');btn('СМЕНИТЬ НИК',W/2-Math.min(280,W*.5)/2,H*.65,Math.min(280,W*.5),Math.min(52,H*.08),()=>{document.getElementById('nick-input').value=myNick;document.getElementById('nick-overlay').style.display='flex'},'#357');btn('СБРОС ПРОГРЕССА',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933')}
 
-// Меню (с кнопкой Red Bull и Планшетным UI)
+// Меню (с кнопкой TikTok)
 function menu(){
     g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
     txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
@@ -307,7 +329,7 @@ function menu(){
     btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
 
     const row3y=row2y+bh+10;
-    btn('RED BULL',(W-280)/2,row3y,130,bh*.85,()=>S='rbMenu','#d90000'); // ФИКС RED BULL
+    btn('RED BULL',(W-280)/2,row3y,130,bh*.85,()=>S='rbMenu','#d90000');
     btn('ДУЭЛЬ',(W-280)/2+140,row3y,140,bh*.85,()=>{showDuelMenu()},'#f0f');
 
     const row4y=row3y+bh*.85+8;
@@ -315,6 +337,8 @@ function menu(){
     btn('ТРАССА: '+TR[tr].n,(W-280)/2+140,row4y,140,bh*.85,()=>{tr=(tr+1)%4;save()},'#555');
 
     const rightBtnX=W-100;
+    // НОВАЯ КНОПКА TIKTOK
+    btn('TikTok 🎬',rightBtnX,H-200,90,30,()=>{window.open('https://vt.tiktok.com/ZSp9fShmw/', '_blank')},'#ff0050');
     btn('РЕЛИЗ',rightBtnX,H-165,90,30,()=>S='release','#e01');
     btn('РЕКОРДЫ',rightBtnX,H-130,90,30,()=>S='records','#f60');
     btn('ОБНОВ',rightBtnX,H-95,90,30,()=>S='patch','#357');
@@ -333,7 +357,7 @@ function adminScreen(){g.fillStyle='#1a1a26';g.fillRect(0,0,W,H);backBtn('menu')
 
 function recordsScreen(){g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);backBtn('menu');txt('ЗАЛ СЛАВЫ',W/2,44,Math.min(26,W*.05),'#fc0','center');let y=90;const l=(t,c='#fff',s=16)=>{txt(t,20,y,s,c);y+=24};l('ЛУЧШИЕ:','#0f0',18);l('1. MTB 2016-12: ---','#fff');l('2. Дёрт: '+dropBest,'#fff');l('3. Трюки: '+Math.floor(stuntBest),'#fff');l('4. Заезд: '+best+'м','#fff');y+=20;l('СУПЕР-БАЙК:','#0f0',18);l('Статус: '+(superBikeUnlocked?'ОТКРЫТ':'ЗАКРЫТ'),superBikeUnlocked?'#0f0':'#f55');l('Ускорение 400: '+(ownedParts.super_upg&&ownedParts.super_upg[1]?'КУПЛЕНО':'НЕТ'),'#fff');btn('ОК',W/2-100,H*.8,200,55,()=>S='menu','#555')}
 
-// Режим ДЁРТ (Фикс зависания и лопата)
+// Режим ДЁРТ
 function dirtModeFunc(dt){
     const fs=Math.min(3,dt*60),w=W,h=H,groundY=h*0.75;
     if(dirtMode.state==='walk'){
@@ -355,7 +379,6 @@ function dirtModeFunc(dt){
             dirtMode.vy+=30*dt;dirtMode.px+=dirtMode.vx*dt;
             if(heldCircle(w*0.2,h*0.8,50))dirtMode.rot-=5*dt;
             if(heldCircle(w*0.8,h*0.8,50))dirtMode.rot+=5*dt;
-            // ФИКС ЗАВИСАНИЯ: проверяем, есть ли вообще трамплины в массиве
             if(dirtMode.ramps.length > 0 && dirtMode.vy>0&&dirtMode.px>dirtMode.ramps[0].x+150){
                 dirtMode.air=false;dirtMode.vy=0;
                 let la=dirtMode.rot%(Math.PI*2),safe=false;
@@ -380,12 +403,10 @@ function dirtModeFunc(dt){
         g.fillStyle=cg.h;g.beginPath();g.arc(0,-40,9,0,7);g.fill();
         
         if(dirtMode.state==='walk'){
-            // Лопата за спиной
             g.strokeStyle='#bbb';g.lineWidth=3;g.beginPath();g.moveTo(-15,-15);g.lineTo(15,-35);g.stroke();
             g.fillStyle='#888';g.fillRect(15,-40,8,10);
             g.strokeStyle=cg.j;g.lineWidth=4;g.beginPath();g.moveTo(0,-20);g.lineTo(-10,0);g.stroke();g.beginPath();g.moveTo(0,-20);g.lineTo(10,0);g.stroke();
         }else{
-            // Лопата в руках и анимация копания
             dirtMode.digTimer+=dt;
             let swing=Math.sin(dirtMode.digTimer*10)*0.5;
             g.save();g.translate(0,-20);g.rotate(swing);
@@ -436,7 +457,183 @@ function rb(dt){const fs=Math.min(3,dt*60);while(nm<P.x+W*2){ms.push(nm);nm+=300
 // Дуэль
 function duelMode(dt){const fs=Math.min(3,dt*60);while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}const pS=partsStats();let vmax=BK[B].v+(cfS()+pS.sp)*5;if(B===12)vmax=(ownedParts.super_upg&&ownedParts.super_upg[1])?40:25;else if(B===11)vmax=40;const btnR=Math.min(55,Math.min(W,H)*.11);const gx=W-btnR-20,gyC=H-btnR-25,bx=btnR+20,by=H-btnR-25,jx=W/2,jy=H-btnR-25,tx=W/2+(btnR+20),ty=H-btnR-25;let isB=false;if(!cr){if(!P.air){const gs=heldCircle(gx,gyC,btnR),bk=heldCircle(bx,by,btnR);isB=bk;if(gs&&!bk)P.vx+=vmax*.025*fs;else if(bk&&!gs)P.vx-=vmax*.045*fs;else P.vx*=Math.pow(.985,fs);P.vx=Math.max(0,Math.min(vmax,P.vx))}P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl}else{P.vy+=.4*fs;P.y+=P.vy*fs;const r=(heldCircle(bx,by,btnR)?-1:0)+(heldCircle(gx,gyC,btnR)?1:0);P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));if(Math.abs(d-sl)>1.5){cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30}P.tot=0}}if(P.x>duelState.target*10&&!cr){finishDuel(socket.id,'Оппонент')}}else{cv*=.93;P.x+=cv*fs;rX+=cv*fs}if(Date.now()-lastNetEmit>50&&socket.connected){let relY=P.y-T(P.x);socket.emit('playerMove',{x:P.x,y:relY,a:P.a,air:P.air,nick:myNick});lastNetEmit=Date.now()}const cx=P.x-W*.35;drawBeautifulSky(cx);drawBeautifulTerrain(cx);let fx=duelState.target*10-cx;if(fx>-50&&fx<W+50){for(let i=0;i<H;i+=40){g.fillStyle='#000';g.fillRect(fx,i,10,20);g.fillStyle='#fff';g.fillRect(fx,i+20,10,20)}txt('ФИНИШ (500м)',fx+15,H/2,20,'#000')}rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});if(opponents[duelState.opponentId]){let opp=opponents[duelState.opponentId];let oX=opp.x-cx;if(oX>-100&&oX<W+100){g.save();let oY=T(opp.x)+opp.y;g.translate(oX,oY);g.rotate(opp.a||0);g.scale(SC,SC);let gCfg={frameCol:'#f0f',rimCol:'#333',tireCol:'#111',tireW:8,forkCol:'#fa0'};drawBike(0,opp.x,true,gCfg,{},false);g.restore();txt(opp.nick,oX,oY-65,12,'#fff','center')}if(opp.x>duelState.target*10&&!cr){finishDuel(duelState.opponentId,myNick)}}if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isB);g.restore()}else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore();const s3=Math.atan2(T(rX+40)-T(rX-40),80);g.save();g.translate(rX-cx,T(rX));g.rotate(s3);g.scale(SC,SC);drawLying();g.restore()}txt('ДУЭЛЬ НА $'+duelState.bet,W/2,30,20,'#f0f','center');txt('До финиша: '+Math.max(0,duelState.target-Math.floor(P.x/10))+' м',W/2,55,16,'#fff','center');if(!cr){if(!P.air){circleBtn(gx,gyC,btnR,'#2a7',drawChainring,null,true);circleBtn(bx,by,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jx,jy,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}else{circleBtn(bx,by,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,-1),null,true);circleBtn(gx,gyC,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,1),null,true);circleBtn(tx,ty,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}btn('СДАТЬСЯ',W-100,10,90,40,()=>{finishDuel(duelState.opponentId,myNick)},'#b33')}else if(cr>40){finishDuel(duelState.opponentId,myNick)}}
 
-function rbMenu(){g.fillStyle='#1a0000';g.fillRect(0,0,W,H);backBtn('menu');txt('RED BULL RAMPAGE',W/2,44,Math.min(26,W*.05),'#d90000','center');for(let i=1;i<=5;i++){const un=i===1||i<=rbLevel;const y=H*.18+(i-1)*Math.min(60,H*.12);if(!un){g.fillStyle='#333';g.fillRect(20,y,W-40,48);txt('ЗАКРЫТО',100,y+30,14,'#777')}else{g.fillStyle='#d90000';g.fillRect(20,y,W-40,48);txt('УРОВЕНЬ '+i+(i===1?' (ЛЁГКИЙ)':''),100,y+20,15,'#fff');txt('Дистанция: '+i*350+'м',100,y+38,12,'#ffcccc');btns.push({x:20,y,w:W-40,h:48,f:()=>{rbLevel=i;rbDist=0;rbTarget=i*350;rbFinished=false;cr=0;P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=0;rp=[];nr=1000;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};rbLives=5;startLoading(()=>{S='rb'})}})}}}
+// Езда (с кнопкой TikTok при проигрыше)
+function ride(dt){
+    const fs=Math.min(3,dt*60);
+    while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
+    while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
+    const pS=partsStats();
+    let vmax=BK[B].v+(cfS()+pS.sp)*5;
+    if(B===12)vmax=(ownedParts.super_upg&&ownedParts.super_upg[1])?40:25;
+    else if(B===11)vmax=40;
+    const btnR=Math.min(55,Math.min(W,H)*.11);
+    const gx=W-btnR-20,gyC=H-btnR-25,bx=btnR+20,by=H-btnR-25,jx=W/2,jy=H-btnR-25,tx=W/2+(btnR+20),ty=H-btnR-25;
+    let isB=false;
+    if(!cr){
+        if(!P.air){
+            const gs=heldCircle(gx,gyC,btnR),bk=heldCircle(bx,by,btnR);
+            isB=bk;
+            if(gs&&!bk)P.vx+=vmax*.025*fs;
+            else if(bk&&!gs)P.vx-=vmax*.045*fs;
+            else P.vx*=Math.pow(.985,fs);
+            P.vx=Math.max(0,Math.min(vmax,P.vx))
+        }
+        P.x+=P.vx*fs;
+        const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
+        rp.forEach(t=>{
+            if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){
+                P.air=1;P.vy=-9-RD[R].s*.4;$+=20;t.used=performance.now()
+            }
+        });
+        rp=rp.filter(t=>t.x>P.x-600);
+        if(!P.air){
+            sus=sus*.8+(gy-P.y)*.2;
+            P.y+=(gy-P.y)*.35*fs;
+            P.a=sl;
+            $+=P.vx*.02*fs;
+            missions.dist1000.prog=Math.floor(P.x/30)
+        }else{
+            P.vy+=.4*fs;
+            P.y+=P.vy*fs;
+            const r=(heldCircle(bx,by,btnR)?-1:0)+(heldCircle(gx,gyC,btnR)?1:0);
+            P.a+=r*7*dt*(1+cfF());
+            P.tot+=r*7*dt*(1+cfF());
+            if(trick.name){trick.t-=dt;if(trick.t<=0)trick.t=0}
+            if(P.y>=gy&&P.vy>0){
+                P.air=0;
+                const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));
+                const fl=Math.round(Math.abs(P.tot)/6.2832);
+                let sa=1.5,rb=false;
+                if(B===12&&P.vx>15){sa=0.8;rb=true}
+                let ls=Math.abs(d-sl)<sa;
+                if(rb&&!isB)ls=false;
+                if(ls){
+                    if(fl>0){
+                        const m=fl*(r>0?30:80);$+=m;say(fl+'x +$'+m);missions.flip5.prog+=fl
+                    }
+                }else{
+                    let sv=false;
+                    if((gear.rbHelmet&&unlocked.rbHelmet)&&(gear.rbChest&&unlocked.rbChest)&&rbLives>0){
+                        rbLives--;say('RED BULL СПАС! ЖИЗНЕЙ: '+rbLives);sv=true
+                    }
+                    if(!sv){
+                        cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30;best=Math.max(best,Math.floor(P.x/30))
+                    }else{
+                        P.a=sl;P.vx*=0.5;P.y=gy;P.tot=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}
+                    }
+                }
+                if(trick.name){
+                    const e=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT));
+                    if(e>0){$+=e;missions.trick10.prog++;say(trick.name+' +$'+e)}
+                    trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}
+                }
+                P.tot=0
+            }
+        }
+        for(let i=ms.length;i--;){
+            if(Math.abs(ms[i]-P.x)<40&&P.y>T(ms[i])-130){
+                ms.splice(i,1);M++;missions.metal20.prog++;say('+1 металл')
+            }else if(ms[i]<P.x-200)ms.splice(i,1)
+        }
+        checkMissions()
+    }else{
+        cr+=fs;cv*=.93;rv*=.9;P.x+=cv*fs;rX+=rv*fs
+    }
+    if(Date.now()-lastNetEmit>50&&socket.connected){
+        let relY=P.y-T(P.x);socket.emit('playerMove',{x:P.x,y:relY,a:P.a,air:P.air,nick:myNick});lastNetEmit=Date.now()
+    }
+    const cx=P.x-W*.35;
+    drawBeautifulSky(cx);drawBeautifulTerrain(cx);
+    ms.forEach(m=>{const sx=m-cx;if(sx<-40||sx>W+40)return;g.fillStyle='#999';g.fillRect(sx-10,T(m)-20,20,20);g.fillStyle='#ddd';g.fillRect(sx-6,T(m)-17,8,7)});
+    rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});
+    for(let id in opponents){
+        let opp=opponents[id];
+        if(Date.now()-opp.lastSeen>5000){delete opponents[id];continue}
+        let oX=opp.x-cx;
+        if(oX>-100&&oX<W+100){
+            g.save();let oY=T(opp.x)+opp.y;g.translate(oX,oY);g.rotate(opp.a||0);g.scale(SC,SC);
+            let gCfg={frameCol:'#e33',rimCol:'#333',tireCol:'#111',tireW:8,forkCol:'#fa0'};
+            drawBike(0,opp.x,true,gCfg,{},false);g.restore();txt(opp.nick,oX,oY-65,12,'#fff','center')
+        }
+    }
+    if(!cr){
+        g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);
+        drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isB);g.restore();
+        if(trick.name){
+            txt(trick.name,W*.35,P.y-120,20,trick.col,'center');
+            const bw=100,bh=6,bx=W*.35-bw/2,by=P.y-100;
+            g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(bx,by,bw,bh);g.fillStyle=trick.col;
+            const pct=Math.max(0,Math.min(1,1-(trick.t/trick.maxT)));g.fillRect(bx,by,bw*pct,bh);
+            g.strokeStyle='#fff';g.lineWidth=1;g.strokeRect(bx,by,bw,bh)
+        }
+    }else{
+        const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);
+        g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore();
+        const s3=Math.atan2(T(rX+40)-T(rX-40),80);
+        g.save();g.translate(rX-cx,T(rX));g.rotate(s3);g.scale(SC,SC);drawLying();g.restore()
+    }
+    txt('Дист: '+Math.floor(P.x/30)+'м',W/2,30,20,'#fff','center');
+    if(trick.name) txt(trick.name+' +$'+trick.bonus,W/2,60,16,trick.col,'center');
+    if(!cr){
+        circleBtn(gx,gyC,btnR,'#2a7',drawChainring,null,true);
+        circleBtn(bx,by,btnR,'#c33',drawBrakeIcon,null,true);
+        circleBtn(jx,jy,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}});
+        if(P.air){
+            circleBtn(bx,by,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,-1),null,true);
+            circleBtn(gx,gyC,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,1),null,true);
+            circleBtn(tx,ty,btnR*.85,'#e70',drawStar,()=>{
+                if(!trick.name){
+                    const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];
+                    trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}
+                }
+            })
+        }
+        btn('СДАТЬСЯ',W-100,10,90,40,()=>{S='menu'},'#b33');
+    }else if(cr>40){
+        g.fillStyle='rgba(0,0,0,0.85)';g.fillRect(0,0,W,H);
+        txt('УПАЛ!',W/2,H*.25,34,'#e33','center');
+        txt('Дистанция: '+Math.floor(P.x/30)+'м',W/2,H*.35,22,'#fff','center');
+        btn('ЗАНОВО',W/2-160,H*.55,150,50,()=>{startLoading(start)},'#2a7');
+        btn('МЕНЮ',W/2+10,H*.55,150,50,()=>{save();S='menu'},'#555');
+        // НОВАЯ КНОПКА TIKTOK ПРИ ПРОИГРЫШЕ
+        btn('🎬 МОЙ TIKTOK',W/2-100,H*.7,200,50,()=>window.open('https://vt.tiktok.com/ZSp9fShmw/','_blank'),'#ff0050');
+    }
+}
 
-// Езда
-function ride(dt){const fs=Math.min(3,dt*60);while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}const pS=partsStats();let vmax=BK[B].v+(cfS()+pS.sp)*5;if(B===12)vmax=(ownedParts.super_upg&&ownedParts.super_upg[1])?40:25;else if(B===11)vmax=40;const btnR=Math.min(55,Math.min(W,H)*.11);const gx=W-btnR-20,gyC=H-btnR-25,bx=btnR+20,by=H-btnR-25,jx=W/2,jy=H-btnR-25,tx=W/2+(btnR+20),ty=H-btnR-25;let isB=false;if(!cr){if(!P.air){const gs=heldCircle(gx,gyC,btnR),bk=heldCircle(bx,by,btnR);isB=bk;if(gs&&!bk)P.vx+=vmax*.025*fs;else if(bk&&!gs)P.vx-=vmax*.045*fs;else P.vx*=Math.pow(.985,fs);P.vx=Math.max(0,Math.min(vmax,P.vx))}P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;$+=20;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl;$+=P.vx*.02*fs;missions.dist1000.prog=Math.floor(P.x/30)}else{P.vy+=.4*fs;P.y+=P.vy*fs;const r=(heldCircle(bx,by,btnR)?-1:0)+(heldCircle(gx,gyC,btnR)?1:0);P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());if(trick.name){trick.t-=dt;if(trick.t<=0)trick.t=0}if(P.y>=gy&&P.vy>0){P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);let sa=1.5,rb=false;if(B===12&&P.vx>15){sa=0.8;rb=true}let ls=Math.abs(d-sl)<sa;if(rb&&!isB)ls=false;if(ls){if(fl>0){const m=fl*(r>0?30:80);$+=m;say(fl+'x +$'+m);missions.flip5.prog+=fl}}else{let sv=false;if((gear.rbHelmet&&unlocked.rbHelmet)&&(gear.rbChest&&unlocked.rbChest)&&rbLives>0){rbLives--;say('RED BULL СПАС! ЖИЗНЕЙ: '+rbLives);sv=true}if(!sv){cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30;best=Math.max(best,Math.floor(P.x/30))}else{P.a=sl;P.vx*=0.5;P.y=gy;P.tot=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}}}if(trick.name){const e=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT));if(e>0){$+=e;missions.trick10.prog++;say(trick.name+' +$'+e)}trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}}P.tot=0}}for(let i=ms.length;i--;){if(Math.abs(ms[i]-P.x)<40&&P.y>T(ms[i])-130){ms.splice(i,1);M++;missions.metal20.prog++;say('+1 металл')}else if(ms[i]<P.x-200)ms.splice(i,1)}checkMissions()}else{cr+=fs;cv*=.93;rv*=.9;P.x+=cv*fs;rX+=rv*fs}if(Date.now()-lastNetEmit>50&&socket.connected){let relY=P.y-T(P.x);socket.emit('playerMove',{x:P.x,y:relY,a:P.a,air:P.air,nick:myNick});lastNetEmit=Date.now()}const cx=P.x-W*.35;drawBeautifulSky(cx);drawBeautifulTerrain(cx);ms.forEach(m=>{const sx=m-cx;if(sx<-40||sx>W+40)return;g.fillStyle='#999';g.fillRect(sx-10,T(m)-20,20,20);g.fillStyle='#ddd';g.fillRect(sx-6,T(m)-17,8,7)});rp.forEach(t=>{const sx=t.x-cx;if(sx<-120||sx>W+40)return;g.fillStyle='#a63';g.beginPath();g.moveTo(sx-90,T(t.x-90));g.lineTo(sx+20,T(t.x+20)-50);g.lineTo(sx+20,T(t.x+20));g.fill()});for(let id in opponents){let opp=opponents[id];if(Date.now()-opp.lastSeen>5000){delete opponents[id];continue}let oX=opp.x-cx;if(oX>-100&&oX<W+100){g.save();let oY=T(opp.x)+opp.y;g.translate(oX,oY);g.rotate(opp.a||0);g.scale(SC,SC);let gCfg={frameCol:'#e33',rimCol:'#333',tireCol:'#111',tireW:8,forkCol:'#fa0'};drawBike(0,opp.x,true,gCfg,{},false);g.restore();txt(opp.nick,oX,oY-65,12,'#fff','center')}}if(!cr){g.save();g.translate(W*.35,P.y);g.rotate(P.a);g.scale(SC,SC);drawBike(Math.min(8,Math.abs(sus)/SC*1.5),P.x,true,undefined,trick,isB);g.restore();if(trick.name){txt(trick.name,W*.35,P.y-120,20,trick.col,'center');const bw=100,bh=6,bx=W*.35-bw/2,by=P.y-100;g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(bx,by,bw,bh);g.fillStyle=trick.col;const pct=Math.max(0,Math.min(1,1-(trick.t/trick.maxT)));g.fillRect(bx,by,bw*pct,bh);g.strokeStyle='#fff';g.lineWidth=1;g.strokeRect(bx,by,bw,bh)}}else{const sl2=Math.atan2(T(P.x+40)-T(P.x-40),80);g.save();g.translate(W*.35,T(P.x)-GL*SC);g.rotate(sl2+.12);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore();const s3=Math.
+function startLoading(cb){loading={on:true,p:0,cb};S='loading';const iv=setInterval(()=>{loading.p+=0.05;if(loading.p>=1){clearInterval(iv);loading.on=false;cb()}},50)}
+function start(){P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=400;rp=[];nr=1000;cr=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};S='ride'}
+function checkMissions(){/* Логика миссий */}
+
+function loop(now){
+    requestAnimationFrame(loop);
+    const dt=Math.min(0.05,(now-lastTime)/1000);lastTime=now;
+    if(settings.showFps){fpsCount++;if(now-fpsTime>1000){fps=fpsCount;fpsCount=0;fpsTime=now}}
+    btns.length=0;
+    g.clearRect(0,0,W,H);
+    
+    if(S==='loading'){drawLoading()}
+    else if(S==='splash'){splash()}
+    else if(S==='menu'){menu()}
+    else if(S==='settings'){settings_screen()}
+    else if(S==='patch'){patchNotes()}
+    else if(S==='release'){releaseScreen()}
+    else if(S==='admin'){adminScreen()}
+    else if(S==='records'){recordsScreen()}
+    else if(S==='stunt'){stunt(dt)}
+    else if(S==='rbMenu'){rbMenu()}
+    else if(S==='rb'){rb(dt)}
+    else if(S==='dirt'){dirtModeFunc(dt)}
+    else if(S==='assemble'){assemble(dt)}
+    else if(S==='workshop'){workshop()}
+    else if(S==='workshop2'){workshop2()}
+    else if(S==='ride'){ride(dt)}
+    else if(S==='duel'){duelMode(dt)}
+    else if(S==='shop'||S==='garage'||S==='dress'||S==='releaseRoom'){S='menu'}
+    
+    if(settings.showFps) txt('FPS: '+fps,W-10,10,12,'#0f0','right');
+    if(mt>0){mt--;txt(msg,W/2,H*.15,18,'#fc0','center')}
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

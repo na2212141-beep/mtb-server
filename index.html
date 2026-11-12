@@ -15,7 +15,8 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 #code-overlay button, #nick-overlay button, #warn-overlay button, #policy-overlay button, #text-overlay button {padding: 15px 40px; font-size: 18px; font-weight: bold;font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer; margin: 10px; color: #fff;}
 .btn-green { background: #2a7; } .btn-red { background: #e33; } .btn-blue { background: #357; }
 
-#chat-wrapper {position: fixed; bottom: 10px; left: 10px; z-index: 500; display: flex; flex-direction: column;}
+/* ЧАТ СКРЫТ ПО УМОЛЧАНИЮ */
+#chat-wrapper {position: fixed; bottom: 10px; left: 10px; z-index: 500; display: none; flex-direction: column;}
 #chat-messages {width: 250px; height: 120px; background: rgba(0,0,0,0.6); color: #fff;font-family: monospace; font-size: 12px; padding: 5px; overflow-y: hidden;border-radius: 5px 5px 0 0; display: flex; flex-direction: column; justify-content: flex-end;}
 #chat-input-area { display: flex; width: 250px; }
 #chat-input { flex: 1; padding: 5px; font-size: 12px; border: 1px solid #fc0; background: rgba(0,0,0,0.8); color: #fff; outline: none; }
@@ -28,7 +29,7 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 <div id="chat-wrapper">
     <div id="chat-messages"></div>
     <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Чат..." maxlength="30" onkeydown="if(event.key==='Enter') sendChat()">
+        <input type="text" id="chat-input" placeholder="Чат релиза..." maxlength="30" onkeydown="if(event.key==='Enter') sendChat()">
         <button id="chat-send" onclick="sendChat()">></button>
     </div>
 </div>
@@ -143,8 +144,18 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ =====
-const RD=[{n:'Даша',t:'Обычный',s:5,col:'#4af'},{n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a'},{n:'Макар',t:'Легендарный',s:9,col:'#fc0'}];
+// ===== ДАННЫЕ (НОВЫЕ РАЙДЕРЫ) =====
+const RD=[
+  {n:'Даша',t:'Обычный',s:5,col:'#4af'},
+  {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a'},
+  {n:'Макар',t:'Легендарный',s:9,col:'#fc0'},
+  {n:'Соня',t:'Профи',s:8,col:'#f0f'},
+  {n:'RB Атлет',t:'Экстрим',s:10,col:'#e10600'},
+  {n:'Марк',t:'Гонщик',s:6,col:'#0f0'},
+  {n:'Аня',t:'Эксперт',s:7,col:'#ffa500'},
+  {n:'Яна',t:'Мастер',s:8,col:'#a0f'}
+];
+
 const BK=[
   {n:'Giant Glory',p:0,sp:0,c:'#1d8a73'},{n:'Trek Session',p:2000,sp:1,c:'#1a1a1a'},{n:'Commencal Meta',p:5000,sp:1,c:'#444444'},
   {n:'Ascend Bikes',p:10000,sp:2,c:'#cccccc'},{n:'Canyon Sender',p:18000,sp:2,c:'#0a0a0a'},{n:'YT Tues',p:25000,sp:3,c:'#e88000'},
@@ -374,14 +385,14 @@ function settings_screen(){
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
 function patchNotes(){
-  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ 12.11',W/2,44,Math.min(22,W*.045),'#fc0','center');
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
   line('- КОМНАТА РЕЛИЗА С ДИДЖЕЕМ!', '#fc0');
+  line('- НОВЫЕ РАЙДЕРЫ (Марк, Аня, Яна).', '#0f0');
+  line('- ЧАТ ТЕПЕРЬ ТОЛЬКО В РЕЛИЗЕ.', '#fff');
   line('- Секретные коды "ЮМИ" и "КОТ" (+$35000).', '#fc0');
   line('- ДОБАВЛЕН РЕЖИМ "ДЁРТ" (вместо дропов).', '#0f0');
-  line('- За постройку трамплина +5$, за трюк +50$.', '#fff');
-  line('- НОВЫЙ СЕРВЕР (Render): стабильнее!', '#0f0');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- ИСПРАВЛЕНЫ КНОПКИ (больше не залипают).', '#0f0'); line('- ПОЧИНЕН ГАРАЖ НА APK.', '#0f0');
 }
@@ -412,9 +423,14 @@ function recordsScreen(){
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); txt('MTB FREERIDE',W/2,H*.07,Math.min(30,W*.055),'#fc0','center'); txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.14,Math.min(14,W*.025),'#fff','center');
   txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left'); txt('В СЕТИ: ' + onlinePlayersCount, W - 20, H - 20, 14, '#0f0', 'right');
-  const cardW=Math.min(120,(W-60)/3-8),cardH=Math.min(100,H*.19); const startX=(W-cardW*3-16)/2,cardY=H*.2;
-  RD.forEach((r,i)=>{const x=startX+i*(cardW+8),y=cardY; g.fillStyle=i===R?'#3a5a7a':'#223';g.fillRect(x,y,cardW,cardH); g.strokeStyle=i===R?r.col:'#555';g.lineWidth=i===R?3:1;g.strokeRect(x,y,cardW,cardH); g.fillStyle=r.col;g.beginPath();g.arc(x+cardW/2,y+cardH*.3,Math.min(18,cardH*.14),0,7);g.fill(); txt(r.n,x+cardW/2,y+cardH*.6,Math.min(14,cardH*.11),'#fff','center'); txt(r.t,x+cardW/2,y+cardH*.78,Math.min(10,cardH*.08),r.col,'center'); btns.push({x,y,w:cardW,h:cardH,f:()=>{R=i;save()}})});
-  const bh=Math.min(48,H*.075),row1y=cardY+cardH+14,bw=Math.min(180,(W-40)/2-8);
+  const cardW=Math.min(100,(W-60)/3-8),cardH=Math.min(80,H*.19); const startX=(W-cardW*8-7*5)/2,cardY=H*.2;
+  RD.forEach((r,i)=>{
+    let row = Math.floor(i/4), col = i%4;
+    let x = startX + col*(cardW+5), y = cardY + row*(cardH+5);
+    g.fillStyle=i===R?'#3a5a7a':'#223';g.fillRect(x,y,cardW,cardH); g.strokeStyle=i===R?r.col:'#555';g.lineWidth=i===R?3:1;g.strokeRect(x,y,cardW,cardH);
+    g.fillStyle=r.col;g.beginPath();g.arc(x+cardW/2,y+cardH*.3,Math.min(14,cardH*.14),0,7);g.fill(); txt(r.n,x+cardW/2,y+cardH*.6,Math.min(12,cardH*.11),'#fff','center'); txt(r.t,x+cardW/2,y+cardH*.78,Math.min(9,cardH*.08),r.col,'center'); btns.push({x,y,w:cardW,h:cardH,f:()=>{R=i;save()}})
+  });
+  const bh=Math.min(48,H*.075),row1y=cardY+cardH*2+20,bw=Math.min(180,(W-40)/2-8);
   btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{ if(useCf && cf || useCf && asm2.done) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { say('Мало МЕТ!'); } } else { if(!tutorialDone)startAssemble(); else startLoading(start); } },'#2a7');
   const row2y=row1y+bh+10,bw2=Math.min(85,(W-30)/8-5),row2x=(W-bw2*8-7*5)/2;
   btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a'); btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62'); btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
@@ -434,67 +450,48 @@ function releaseRoom(){
   const w=W, h=H;
   g.fillStyle='#0a0a15'; g.fillRect(0,0,w,h);
   
-  // Свет со сцены
+  let now = new Date().getTime(), diff = releaseTarget - now;
+  
+  if (diff > 0) {
+      txt('КОМНАТА РЕЛИЗА ЗАКРЫТА', w/2, h*0.4, 24, '#f55', 'center');
+      let d = Math.floor(diff / (1000 * 60 * 60 * 24)), hr = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)), m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)), s = Math.floor((diff % (1000 * 60)) / 1000);
+      txt(`ДО ОТКРЫТИЯ: ${d}д ${hr}ч ${m}м ${s}с`, w/2, h*0.5, 20, '#fff', 'center');
+      btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
+      return;
+  }
+
   const grd = g.createRadialGradient(w/2, h/2, 50, w/2, h/2, w*0.8);
   grd.addColorStop(0, 'rgba(255, 0, 0, 0.3)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = grd; g.fillRect(0,0,w,h);
 
-  // Сцена
   g.fillStyle = '#222'; g.fillRect(0, h*0.7, w, h*0.3);
   g.fillStyle = '#d90000'; g.fillRect(0, h*0.7-20, w, 20);
 
-  // Текст на табло (вверху)
   g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillRect(w*0.1, 20, w*0.8, 80);
   g.strokeStyle = '#fc0'; g.lineWidth = 3; g.strokeRect(w*0.1, 20, w*0.8, 80);
   txt(releaseText, w/2, 70, Math.min(24, (w*0.8 / releaseText.length) * 1.8), '#0f0', 'center');
 
-  // Диджей (в центре)
   let djX = w*0.5, djY = h*0.7;
-  
-  // Рисуем диджея в Red Bull экипировке
-  g.lineWidth = 20; g.strokeStyle = '#ccc'; // Нагрудник
-  g.beginPath(); g.moveTo(djX, djY-100); g.lineTo(djX, djY-20); g.stroke();
-  g.fillStyle = '#0033cc'; g.fillRect(djX-15, djY-90, 30, 60); // Синий цвет Red Bull
-
-  // Шлем Red Bull
+  g.lineWidth = 20; g.strokeStyle = '#ccc'; g.beginPath(); g.moveTo(djX, djY-100); g.lineTo(djX, djY-20); g.stroke();
+  g.fillStyle = '#0033cc'; g.fillRect(djX-15, djY-90, 30, 60); 
   g.fillStyle = '#0033cc'; g.beginPath(); g.arc(djX, djY-120, 25, Math.PI, Math.PI*2); g.fill();
   g.fillStyle = '#e10600'; g.beginPath(); g.moveTo(djX, djY-140); g.lineTo(djX-15, djY-155); g.lineTo(djX+15, djY-155); g.fill();
-  
-  // Очки
   g.fillStyle = '#111'; g.fillRect(djX-15, djY-125, 30, 10);
-
-  // Руки диджея на пульте
-  g.strokeStyle = '#e8b48a'; g.lineWidth = 10;
-  g.beginPath(); g.moveTo(djX-10, djY-80); g.lineTo(djX-50, djY-40); g.stroke();
-  g.beginPath(); g.moveTo(djX+10, djY-80); g.lineTo(djX+50, djY-40); g.stroke();
-
-  // Пульт диджея
+  g.strokeStyle = '#e8b48a'; g.lineWidth = 10; g.beginPath(); g.moveTo(djX-10, djY-80); g.lineTo(djX-50, djY-40); g.stroke(); g.beginPath(); g.moveTo(djX+10, djY-80); g.lineTo(djX+50, djY-40); g.stroke();
   g.fillStyle = '#333'; g.fillRect(djX-80, djY-40, 160, 40);
   g.fillStyle = '#ff0'; g.beginPath(); g.arc(djX-50, djY-20, 15, 0, Math.PI*2); g.fill();
   g.fillStyle = '#0f0'; g.beginPath(); g.arc(djX+50, djY-20, 15, 0, Math.PI*2); g.fill();
 
-  // Если Николай на сцене — рисуем его огромным
   if (isDevOnStage) {
-      g.save();
-      g.translate(w/2, h*0.7);
-      g.scale(5, 5); // Огромный размер
-      drawBike(0, 0, true, undefined, {}, false); // Или drawRider, но байк проще
-      g.restore();
+      g.save(); g.translate(w/2, h*0.7); g.scale(5, 5); drawBike(0, 0, true, undefined, {}, false); g.restore();
       txt('НИКОЛАЙ РАЗРАБОТЧИК', w/2, h*0.7 - 200, 24, '#fc0', 'center');
   }
 
-  // Кнопки управления
   btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
   
   if (isDevMode) {
-      btn('ИЗМЕНИТЬ ТЕКСТ', w-160, h-60, 150, 44, ()=>{
-          document.getElementById('release-text-input').value = releaseText;
-          document.getElementById('text-overlay').style.display = 'flex';
-      }, '#357');
-      
-      btn(isDevOnStage ? 'УЙТИ СО СЦЕНЫ' : 'ВЫЙТИ НА СЦЕНУ', w/2-100, h*0.7+20, 200, 50, ()=>{
-          socket.emit('stageStatus', !isDevOnStage);
-      }, isDevOnStage ? '#e33' : '#2a7');
+      btn('ИЗМЕНИТЬ ТЕКСТ', w-160, h-60, 150, 44, ()=>{ document.getElementById('release-text-input').value = releaseText; document.getElementById('text-overlay').style.display = 'flex'; }, '#357');
+      btn(isDevOnStage ? 'УЙТИ СО СЦЕНЫ' : 'ВЫЙТИ НА СЦЕНУ', w/2-100, h*0.7+20, 200, 50, ()=>{ socket.emit('stageStatus', !isDevOnStage); }, isDevOnStage ? '#e33' : '#2a7');
   }
 }
 
@@ -701,6 +698,14 @@ function start(){P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=400;rp=
 function loop(now){
   rs(); now=now||performance.now(); const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now; fpsCount++; if(now-fpsTime>1000){fps=fpsCount;fpsCount=0;fpsTime=now}
   const s=settings.scale,dpr=Math.min(window.devicePixelRatio||1,3); g.setTransform(dpr*s,0,0,dpr*s,W/2*dpr*(1-s),H/2*dpr*(1-s)); btns=[];
+  
+  // Показываем чат ТОЛЬКО в комнате релиза и после времени релиза
+  if(S === 'releaseRoom' && Date.now() >= releaseTarget) {
+      document.getElementById('chat-wrapper').style.display = 'flex';
+  } else {
+      document.getElementById('chat-wrapper').style.display = 'none';
+  }
+
   try{
     if(loading.on){loading.p=Math.min(1,loading.p+dt*1.5);if(loading.p>=1){loading.on=false;const cb=loading.cb;loading.cb=null;try{if(cb)cb()}catch(e){S='menu'}}drawLoading()}
     else if(S==='splash')splash(); else if(S==='menu')menu(); else if(S==='patch')patchNotes(); else if(S==='release')releaseScreen(); else if(S==='admin')adminScreen(); else if(S==='records')recordsScreen(); else if(S==='settings')settings_screen(); else if(S==='dirt')dirtModeFunc(dt); else if(S==='ride')ride(dt); else if(S==='stunt')stunt(dt); else if(S==='rb')rb(dt); else if(S==='rbMenu')rbMenu(); else if(S==='shop')shop(); else if(S==='garage')garage(); else if(S==='workshop')workshop(); else if(S==='workshop2')workshop2(); else if(S==='dress')dress(); else if(S==='assemble')assemble(dt); else if(S==='releaseRoom')releaseRoom(); else menu();

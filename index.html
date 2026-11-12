@@ -16,10 +16,11 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 #code-overlay button, #nick-overlay button, #warn-overlay button, #policy-overlay button, #text-overlay button, #duel-overlay button {padding: 15px 40px; font-size: 18px; font-weight: bold;font-family: "Courier New", monospace; border-radius: 8px; border: none; cursor: pointer; margin: 10px; color: #fff;}
 .btn-green { background: #2a7; } .btn-red { background: #e33; } .btn-blue { background: #357; }
 
-#chat-wrapper {position: fixed; bottom: 10px; left: 10px; z-index: 500; display: none; flex-direction: column;}
-#chat-messages {width: 250px; height: 120px; background: rgba(0,0,0,0.6); color: #fff;font-family: monospace; font-size: 12px; padding: 5px; overflow-y: hidden;border-radius: 5px 5px 0 0; display: flex; flex-direction: column; justify-content: flex-end;}
-#chat-input-area { display: flex; width: 250px; }
-#chat-input { flex: 1; padding: 5px; font-size: 12px; border: 1px solid #fc0; background: rgba(0,0,0,0.8); color: #fff; outline: none; }
+/* ЧАТ ПЕРЕНЕСЕН В ПРАВЫЙ ВЕРХНИЙ УГОЛ, ЧТОБЫ НЕ МЕШАТЬ */
+#chat-wrapper {position: fixed; top: 80px; right: 10px; z-index: 500; display: none; flex-direction: column;}
+#chat-messages {width: 200px; height: 100px; background: rgba(0,0,0,0.6); color: #fff;font-family: monospace; font-size: 11px; padding: 5px; overflow-y: hidden;border-radius: 5px 5px 0 0; display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none;}
+#chat-input-area { display: flex; width: 200px; pointer-events: auto;}
+#chat-input { flex: 1; padding: 5px; font-size: 11px; border: 1px solid #fc0; background: rgba(0,0,0,0.8); color: #fff; outline: none; }
 #chat-send { background: #fc0; color: #000; border: none; padding: 5px 10px; font-weight: bold; cursor: pointer; }
 </style>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -121,7 +122,7 @@ socket.on('duelResult', (data) => {
 });
 
 // ===== ДУЭЛЬ ФУНКЦИИ =====
-let duelState = { active: false, opponentId: null, bet: 0, isChallenger: false, target: 500 };
+let duelState = { active: false, opponentId: null, bet: 0, isChallenger: false, target: 500, pendingChallengerId: null };
 function showDuelMenu() {
     let opps = Object.keys(opponents).filter(id => Date.now() - opponents[id].lastSeen < 5000);
     if(opps.length === 0) { alert("В сети нет других игроков для дуэли!"); return; }
@@ -193,7 +194,7 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ (СКОРОСТИ) =====
+// ===== ДАННЫЕ =====
 const RD=[
   {n:'Даша',t:'Обычный',s:5,col:'#4af',g:{h:'#4af', j:'#e33', p:'#222', b:'#1d8a73'}},
   {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a',g:{h:'#f4a', j:'#222', p:'#111', b:'#444'}},
@@ -205,7 +206,6 @@ const RD=[
   {n:'Яна',t:'Мастер',s:8,col:'#a0f',g:{h:'#a0f', j:'#f4a', p:'#222', b:'#1a1a1a'}}
 ];
 
-// V - это базовая скорость в игре (v * 10 = км/ч)
 const BK=[
   {n:'Giant Glory',p:0,sp:0,c:'#1d8a73', v:5}, 
   {n:'Trek Session',p:2000,sp:1,c:'#1a1a1a', v:6},
@@ -216,10 +216,10 @@ const BK=[
   {n:'Mondraker Summum',p:35000,sp:3,c:'#f66000', v:11},
   {n:'Santa Cruz Bronson',p:45000,sp:4,c:'#2c9', v:12},
   {n:'Specialized Demo',p:60000,sp:4,c:'#e33', v:13},
-  {n:'Santa Cruz V10',p:80000,sp:5,c:'#a0f', v:15}, // 150 км/ч
-  {n:'MTB 2016-12',p:150000,sp:10,c:'#ff00ff', v:25}, // 250 км/ч
-  {n:'ДОМАШНИЙ',p:0,sp:0,c:'#ffaa00', v:40}, // 400 км/ч
-  {n:'СУПЕР-БАЙК',p:0,sp:0,c:'#00ffff', v:25} // 250/400 км/ч
+  {n:'Santa Cruz V10',p:80000,sp:5,c:'#a0f', v:15},
+  {n:'MTB 2016-12',p:150000,sp:10,c:'#ff00ff', v:25},
+  {n:'ДОМАШНИЙ',p:0,sp:0,c:'#ffaa00', v:40},
+  {n:'СУПЕР-БАЙК',p:0,sp:0,c:'#00ffff', v:25}
 ];
 const CL=['#e33','#fc0','#3c6','#39f','#fff','#222','#f4a','#f60','#0e0','#111'];
 const TR=[{n:'Лес',sky:'#8cf',gr:'#4a5',amp:1},{n:'Пустыня',sky:'#fd9',gr:'#db7',amp:1.3},{n:'Горы',sky:'#bcd',gr:'#eef',amp:1.6},{n:'БАЙК-ПАРК',sky:'#c9e',gr:'#5a4',amp:0.6,park:true}];
@@ -256,7 +256,8 @@ let rbLevel=1,rbDist=0,rbTarget=350,rbFinished=false;
 let fps=0,fpsCount=0,fpsTime=0;
 let isDevMode = false, usedCodes = [], devCodeUsed = false, pendingDevCode = '', lastNetEmit = 0, rbLives = 5, asm2 = {step: 0, done: false}, superBikeUnlocked = false;
 let previewHelmet = true;
-let releaseTarget = new Date('2024-11-13T18:30:00').getTime();
+// ИСПРАВЛЕНО: Дата релиза теперь 2026 год, чтобы таймер работал на твоем телефоне
+let releaseTarget = new Date('2026-11-13T18:30:00').getTime(); 
 let deviceType = /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'PC');
 let dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 };
 
@@ -468,6 +469,7 @@ function patchNotes(){
   line('- МЕНЮ ПЕРЕДЕЛАНО (ПРЕВЬЮ И ШЛЕМ).', '#fff');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- ИСПРАВЛЕНЫ КНОПКИ (больше не залипают).', '#0f0'); line('- ПОЧИНЕН ГАРАЖ И ТАЙМЕР.', '#0f0');
+  line('- ЧАТ БОЛЬШЕ НЕ МЕШАЕТ КНОПКАМ.', '#0f0');
 }
 function releaseScreen(){
   g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); txt('РЕЛИЗ MTB FREERIDE',W/2,44,Math.min(26,W*.05),'#e01','center');
@@ -555,6 +557,55 @@ function menu(){
   btn('ВВЕСТИ КОД',rightBtnX,H-66,85,28,()=>{openCodeUI()},'#0aa');
   
   if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
+}
+
+// ===== КОМНАТА РЕЛИЗА =====
+function releaseRoom(){
+  const w=W, h=H;
+  g.fillStyle='#0a0a15'; g.fillRect(0,0,w,h);
+  
+  let timeLeft = getTimeLeft();
+  
+  if (timeLeft.diff > 0) {
+      txt('КОМНАТА РЕЛИЗА ЗАКРЫТА', w/2, h*0.4, 24, '#f55', 'center');
+      txt(`ДО ОТКРЫТИЯ: ${timeLeft.d}д ${timeLeft.h}ч ${timeLeft.m}м ${timeLeft.s}с`, w/2, h*0.5, 20, '#fff', 'center');
+      btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
+      return;
+  }
+
+  const grd = g.createRadialGradient(w/2, h/2, 50, w/2, h/2, w*0.8);
+  grd.addColorStop(0, 'rgba(255, 0, 0, 0.3)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grd; g.fillRect(0,0,w,h);
+
+  g.fillStyle = '#222'; g.fillRect(0, h*0.7, w, h*0.3);
+  g.fillStyle = '#d90000'; g.fillRect(0, h*0.7-20, w, 20);
+
+  g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillRect(w*0.1, 20, w*0.8, 80);
+  g.strokeStyle = '#fc0'; g.lineWidth = 3; g.strokeRect(w*0.1, 20, w*0.8, 80);
+  txt(releaseText, w/2, 70, Math.min(24, (w*0.8 / releaseText.length) * 1.8), '#0f0', 'center');
+
+  let djX = w*0.5, djY = h*0.7;
+  g.lineWidth = 20; g.strokeStyle = '#ccc'; g.beginPath(); g.moveTo(djX, djY-100); g.lineTo(djX, djY-20); g.stroke();
+  g.fillStyle = '#0033cc'; g.fillRect(djX-15, djY-90, 30, 60); 
+  g.fillStyle = '#0033cc'; g.beginPath(); g.arc(djX, djY-120, 25, Math.PI, Math.PI*2); g.fill();
+  g.fillStyle = '#e10600'; g.beginPath(); g.moveTo(djX, djY-140); g.lineTo(djX-15, djY-155); g.lineTo(djX+15, djY-155); g.fill();
+  g.fillStyle = '#111'; g.fillRect(djX-15, djY-125, 30, 10);
+  g.strokeStyle = '#e8b48a'; g.lineWidth = 10; g.beginPath(); g.moveTo(djX-10, djY-80); g.lineTo(djX-50, djY-40); g.stroke(); g.beginPath(); g.moveTo(djX+10, djY-80); g.lineTo(djX+50, djY-40); g.stroke();
+  g.fillStyle = '#333'; g.fillRect(djX-80, djY-40, 160, 40);
+  g.fillStyle = '#ff0'; g.beginPath(); g.arc(djX-50, djY-20, 15, 0, Math.PI*2); g.fill();
+  g.fillStyle = '#0f0'; g.beginPath(); g.arc(djX+50, djY-20, 15, 0, Math.PI*2); g.fill();
+
+  if (isDevOnStage) {
+      g.save(); g.translate(w/2, h*0.7); g.scale(5, 5); drawBike(0, 0, true, undefined, {}, false); g.restore();
+      txt('НИКОЛАЙ РАЗРАБОТЧИК', w/2, h*0.7 - 200, 24, '#fc0', 'center');
+  }
+
+  btn('НАЗАД', 10, h-60, 100, 44, ()=>S='menu', '#555');
+  
+  if (isDevMode) {
+      btn('ИЗМЕНИТЬ ТЕКСТ', w-160, h-60, 150, 44, ()=>{ document.getElementById('release-text-input').value = releaseText; document.getElementById('text-overlay').style.display = 'flex'; }, '#357');
+      btn(isDevOnStage ? 'УЙТИ СО СЦЕНЫ' : 'ВЫЙТИ НА СЦЕНУ', w/2-100, h*0.7+20, 200, 50, ()=>{ socket.emit('stageStatus', !isDevOnStage); }, isDevOnStage ? '#e33' : '#2a7');
+  }
 }
 
 // ===== РЕЖИМ ДУЭЛИ =====
@@ -783,8 +834,14 @@ function loop(now){
   rs(); now=now||performance.now(); const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now; fpsCount++; if(now-fpsTime>1000){fps=fpsCount;fpsCount=0;fpsTime=now}
   const s=settings.scale,dpr=Math.min(window.devicePixelRatio||1,3); g.setTransform(dpr*s,0,0,dpr*s,W/2*dpr*(1-s),H/2*dpr*(1-s)); btns=[];
   
-  if(S === 'releaseRoom' && Date.now() >= releaseTarget) { document.getElementById('chat-wrapper').style.display = 'flex'; } 
-  else { document.getElementById('chat-wrapper').style.display = 'none'; }
+  // ИСПРАВЛЕН ЧАТ: Появляется ТОЛЬКО если мы в комнате релиза И время релиза наступило
+  if(S === 'releaseRoom') {
+      let timeLeft = getTimeLeft();
+      if(timeLeft.diff <= 0) { document.getElementById('chat-wrapper').style.display = 'flex'; } 
+      else { document.getElementById('chat-wrapper').style.display = 'none'; }
+  } else {
+      document.getElementById('chat-wrapper').style.display = 'none';
+  }
 
   try{
     if(loading.on){loading.p=Math.min(1,loading.p+dt*1.5);if(loading.p>=1){loading.on=false;const cb=loading.cb;loading.cb=null;try{if(cb)cb()}catch(e){S='menu'}}drawLoading()}

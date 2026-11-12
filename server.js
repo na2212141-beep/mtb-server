@@ -9,7 +9,6 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 const DB_FILE = 'database.json';
 
-// Загружаем базу данных при запуске
 let playersDB = {};
 if (fs.existsSync(DB_FILE)) {
     try { playersDB = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch(e) {}
@@ -20,11 +19,15 @@ function saveDB() {
 }
 
 let onlineCount = 0;
+let currentReleaseText = "ДОБРО ПОЖАЛОВАТЬ НА РЕЛИЗ MTB FREERIDE!";
 
 io.on('connection', (socket) => {
     console.log('Игрок подключился:', socket.id);
     onlineCount++;
     io.emit('playerConnected');
+    
+    // Отправляем текущий текст новому игроку
+    socket.emit('releaseAnnouncement', currentReleaseText);
 
     socket.on('playerMove', (data) => {
         socket.broadcast.emit('opponentMove', { id: socket.id, ...data });
@@ -34,7 +37,12 @@ io.on('connection', (socket) => {
         io.emit('chatMessage', data);
     });
 
-    // Сохранение прогресса
+    // Прием и рассылка текста для релиза
+    socket.on('releaseAnnouncement', (text) => {
+        currentReleaseText = text;
+        io.emit('releaseAnnouncement', text);
+    });
+
     socket.on('saveData', (data) => {
         if (data.nick) {
             playersDB[data.nick] = {
@@ -48,14 +56,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Загрузка прогресса
     socket.on('getData', (nick) => {
         if (playersDB[nick]) {
             socket.emit('loadDataFromServer', playersDB[nick]);
         }
     });
 
-    // Админка: запрос всех игроков
     socket.on('adminGetAll', () => {
         const playersList = Object.keys(playersDB).map(nick => ({
             nick: nick,
@@ -68,12 +74,10 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         onlineCount = Math.max(0, onlineCount - 1);
         io.emit('playerDisconnected');
-        console.log('Игрок отключился');
     });
 });
 
 const PORT = process.env.PORT || 3000;
-// ВАЖНО: '0.0.0.0' нужен для работы на Render!
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });

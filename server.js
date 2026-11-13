@@ -3,15 +3,11 @@ const http = require('http');
 const { Server } = require("socket.io");
 const { Redis } = require('@upstash/redis');
 
-// ТВОИ КЛЮЧИ ИЗ UPSTASH (Я их уже вставил)
-const REDIS_URL = 'https://exact-giraffe-199465.upstash.io';
-const REDIS_TOKEN = 'gQAAAAAAAwspAAIgcDE1OTNiMWYyZjg0NWY0YWI1OTUwNDRlZDc0YjM0ODc5NQ';
+// ТВОИ КЛЮЧИ ИЗ UPSTASH
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || 'https://exact-giraffe-199465.upstash.io';
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || 'gQAAAAAAAwspAAIgcDE1OTNiMWYyZjg0NWY0YWI1OTUwNDRlZDc0YjM0ODc5NQ';
 
-const redis = new Redis({
-  url: REDIS_URL,
-  token: REDIS_TOKEN,
-});
-
+const redis = new Redis({ url: REDIS_URL, token: REDIS_TOKEN });
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
@@ -22,13 +18,12 @@ io.on('connection', (socket) => {
     onlinePlayersCount++;
     io.emit('playerConnected');
 
-    // --- ЗАГРУЗКА ДАННЫХ ---
     socket.on('getData', async (nick) => {
         try {
             let playerData = await redis.get(`player:${nick}`);
             if (!playerData) {
                 playerData = {
-                    money: 0, metal: 0, best: 0, isDevMode: false,
+                    money: 0, metal: 0, best: 0, isDevMode: false, superBikeUnlocked: false,
                     ownedBikes: [1,0,0,0,0,0,0,0,0,0,0,0,0],
                     gear: {helmet:'#fc0', jersey:'#e33', pants:'#222', chest:false, fox:false, rbHelmet:false, rbChest:false},
                     unlocked: {foxHelmet:false, foxChest:false, foxPants:false, rbHelmet:false, rbChest:false}
@@ -41,30 +36,39 @@ io.on('connection', (socket) => {
         } catch (e) { console.log('Ошибка загрузки:', e); }
     });
 
-    // --- СОХРАНЕНИЕ ДАННЫХ ---
     socket.on('saveData', async (data) => {
         try {
             await redis.set(`player:${data.nick}`, JSON.stringify(data));
-            console.log(`💾 Сохранен: ${data.nick} | Деньги: $${data.money} | Админ: ${data.isDevMode}`);
         } catch (e) { console.log('Ошибка сохранения:', e); }
     });
 
-    // --- ДВИЖЕНИЕ В МУЛЬТИПЛЕЕРЕ ---
+    // --- ЛОГИКА ЗАБРАТЬ БАЙК У ВСЕХ ---
+    socket.on('adminWipeSuperBike', async () => {
+        try {
+            const keys = await redis.keys('player:*');
+            for (let key of keys) {
+                let p = await redis.get(key);
+                if (p) {
+                    if (typeof p === 'string') p = JSON.parse(p);
+                    if (p.ownedBikes) p.ownedBikes[12] = 0; // Удаляем байк
+                    p.superBikeUnlocked = false;
+                    await redis.set(key, JSON.stringify(p));
+                }
+            }
+            io.emit('superBikeWiped'); // Отправляем всем команду обновить экран
+            console.log('⚠ Админ забрал Супер-Байк у всех!');
+        } catch (e) { console.log(e); }
+    });
+
     socket.on('playerMove', (data) => {
         socket.broadcast.emit('opponentMove', { id: socket.id, ...data });
     });
 
-    // --- ЧАТ ---
     socket.on('chatMessage', (data) => { io.emit('chatMessage', data); });
     socket.on('releaseAnnouncement', (text) => { io.emit('releaseAnnouncement', text); });
 
-    // ==========================================
-    // --- ЛОГИКА ДУЭЛЕЙ ---
-    // ==========================================
     socket.on('sendDuelInvite', (data) => {
-        io.to(data.targetId).emit('receiveDuelInvite', { 
-            fromId: socket.id, fromNick: data.fromNick, bet: data.bet 
-        });
+        io.to(data.targetId).emit('receiveDuelInvite', { fromId: socket.id, fromNick: data.fromNick, bet: data.bet });
     });
 
     socket.on('acceptDuel', (data) => {
@@ -93,7 +97,6 @@ io.on('connection', (socket) => {
         } catch (e) { console.log('Ошибка дуэли:', e); }
     });
 
-    // --- АДМИНКА (ПОЛУЧИТЬ ВСЕХ ИГРОКОВ) ---
     socket.on('adminGetAll', async () => {
         try {
             const keys = await redis.keys('player:*'); 

@@ -111,15 +111,14 @@ socket.on('loadDataFromServer', (data) => {
     if(data.isDevMode !== undefined) isDevMode = data.isDevMode; 
     if(data.gear) Object.assign(gear, data.gear);
     if(data.unlocked) Object.assign(unlocked, data.unlocked);
-    if(data.superBikeUnlocked !== undefined) superBikeUnlocked = data.superBikeUnlocked; // Синхронизация супербайка
+    if(data.superBikeUnlocked !== undefined) superBikeUnlocked = data.superBikeUnlocked; 
     saveLocal(); 
 });
 
-// Событие глобального изъятия супербайка
 socket.on('superBikeWiped', () => {
     own[12] = 0;
     superBikeUnlocked = false;
-    if (B === 12) B = 0; // Если игрок ехал на нем, пересаживаем на сток
+    if (B === 12) B = 0; 
     saveLocal();
     alert('⚠ ВНИМАНИЕ! Администратор забрал Супер-Байк у всех игроков!');
 });
@@ -127,7 +126,6 @@ socket.on('superBikeWiped', () => {
 socket.on('adminGetAllResult', (players) => { serverPlayersList = players; alert("Данные загружены!"); });
 socket.on('chatMessage', (data) => { const box = document.getElementById('chat-messages'); const msg = document.createElement('div'); msg.innerHTML = `<span style="color:#fc0">${data.nick}:</span> <span style="color:#fff">${data.text}</span>`; box.appendChild(msg); if (box.children.length > 5) box.removeChild(box.firstChild); box.scrollTop = box.scrollHeight; });
 
-// Дуэль события
 socket.on('receiveDuelInvite', (data) => {
     duelState.pendingChallengerId = data.fromId;
     duelState.bet = data.bet;
@@ -211,6 +209,7 @@ function rs(){
 rs(); window.addEventListener('resize',rs); window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)}); setInterval(rs,200);
 
 // ===== НАСТРОЙКИ =====
+// Убрали масштаб, теперь только звук и фпс
 let settings={volume:0.5,showFps:false};
 try{const d=JSON.parse(localStorage.getItem('mtb_settings'));if(d){settings.volume=d.volume||0.5;settings.showFps=d.showFps||false}}catch(e){}
 function saveSettings(){try{localStorage.setItem('mtb_settings',JSON.stringify(settings))}catch(e){}}
@@ -576,8 +575,17 @@ function splash(){
 function settings_screen(){
   g.fillStyle='#1a2030';g.fillRect(0,0,W,H); backBtn('menu');txt('НАСТРОЙКИ',W/2,44,Math.min(28,W*.05),'#fc0','center');
   const startY=H*.25, lineH=Math.min(80,H*.15); const col1=W*0.15, col2=W*0.45, col3=W*0.65, col4=W*0.75; const bh=Math.min(50,H*.08);
-  txt('ЗВУК', col1, startY+bh/2+5, Math.min(18,W*.032), '#fff'); btn('<', col2, startY, 60, bh, ()=>{settings.volume=Math.max(0, settings.volume-0.1);saveSettings()}, '#555'); txt(Math.round(settings.volume*100)+'%', col3, startY+bh/2+5, Math.min(18,W*.032), '#fc0', 'center'); btn('>', col4, startY, 60, bh, ()=>{settings.volume=Math.min(1, settings.volume+0.1);saveSettings()}, '#555');
-  txt('СЧЁТЧИК FPS', col1, startY+lineH+bh/2+5, Math.min(18,W*.032), '#fff'); btn(settings.showFps?'ВКЛ':'ВЫКЛ', col2, startY+lineH, Math.min(140,W*.15), bh, ()=>{settings.showFps=!settings.showFps;saveSettings()}, settings.showFps?'#2a7':'#444');
+  
+  txt('ЗВУК', col1, startY+bh/2+5, Math.min(18,W*.032), '#fff'); 
+  btn('<', col2, startY, 60, bh, ()=>{settings.volume=Math.max(0, settings.volume-0.1);saveSettings()}, '#555'); 
+  txt(Math.round(settings.volume*100)+'%', col3, startY+bh/2+5, Math.min(18,W*.032), '#fc0', 'center'); 
+  btn('>', col4, startY, 60, bh, ()=>{settings.volume=Math.min(1, settings.volume+0.1);saveSettings()}, '#555');
+  
+  // Полностью убрали настройку масштаба!
+  
+  txt('СЧЁТЧИК FPS', col1, startY+lineH+bh/2+5, Math.min(18,W*.032), '#fff'); 
+  btn(settings.showFps?'ВКЛ':'ВЫКЛ', col2, startY+lineH, Math.min(140,W*.15), bh, ()=>{settings.showFps=!settings.showFps;saveSettings()}, settings.showFps?'#2a7':'#444');
+  
   btn('СМЕНИТЬ НИК',W/2-Math.min(280,W*.5)/2, H*.65,Math.min(280,W*.5),Math.min(52,H*.08),()=>{ document.getElementById('nick-input').value = myNick; document.getElementById('nick-overlay').style.display = 'flex'; },'#357');
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
@@ -586,9 +594,9 @@ function patchNotes(){
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
   line('- АДМИНКА: КНОПКА "ЗАБРАТЬ БАЙК У ВСЕХ".', '#fc0');
-  line('- В ИГРЕ ДОБАВЛЕНА КНОПКА "МЕНЮ" В ПРАВОМ ВЕРХНЕМ УГЛУ.', '#0f0');
-  line('- СУПЕР-БАЙК ТЕПЕРЬ СОХРАНЯЕТСЯ НА СЕРВЕРЕ.', '#fff');
-  line('- ИСПРАВЛЕН БАГ С МАСШТАБОМ ЭКРАНА.', '#f0f');
+  line('- НАСТРОЙКИ ВЫНЕСЕНЫ В ОТДЕЛЬНУЮ КНОПКУ.', '#0f0');
+  line('- УБРАН ПОЛЗУНОК МАСШТАБА (БОЛЬШЕ НЕ ЛОМАЕТ ЭКРАН).', '#fff');
+  line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#f0f');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- УЛУЧШЕНЫ КНОПКИ ДЛЯ СЕНСОРА (ТОЧНОЕ НАЖАТИЕ).', '#0f0');
 }
@@ -666,7 +674,8 @@ function menu(){
   btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9'); 
   btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
   btn('ДЁРТ',row2x+(bw2+5)*6,row2y,bw2,bh,()=>{ dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 }; startLoading(()=>{ S='dirt'; }); },'#a63');
-  btn('⚙',row2x+(bw2+5)*7,row2y,bw2,bh,()=>S='settings','#555');
+  
+  // Кнопка настроек убрана из общего ряда и перенесена вниз справа!
   
   const row3y=row2y+bh+10;
   btn('RED BULL', (W-280)/2, row3y, 130, bh*.85, ()=>S='rbMenu','#d90000');
@@ -682,6 +691,9 @@ function menu(){
   btn('ОБНОВ', rightBtnX, H-99, 85, 28, ()=>S='patch', '#357'); 
   btn('ВВЕСТИ КОД',rightBtnX,H-66,85,28,()=>{openCodeUI()},'#0aa');
   
+  // НОВАЯ КНОПКА НАСТРОЕК В ПРАВОМ НИЖНЕМ УГЛУ
+  btn('⚙ НАСТРОЙКИ', W-150, H-60, 140, 45, ()=>S='settings', '#555');
+
   if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
 }
 

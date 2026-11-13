@@ -5,8 +5,8 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;-webkit-user-select:none;user-select:none;position:fixed;overscroll-behavior:none}
-#game-wrap{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:top left}
-#game-wrap.portrait{width:100vh;height:100vw;transform:rotate(90deg) translateY(-100%)}
+#game-wrap{position:absolute;top:env(safe-area-inset-top,0px);left:env(safe-area-inset-left,0px);width:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));transform-origin:top left}
+#game-wrap.portrait{width:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));transform:rotate(90deg) translateY(-100%)}
 canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;width:100%;height:100%}
 #code-overlay,#nick-overlay,#warn-overlay,#policy-overlay,#text-overlay,#duel-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:1000;text-align:center;padding:20px}
 #nick-overlay{display:flex;background:rgba(10,15,30,0.95);z-index:1002}
@@ -17,7 +17,7 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 #code-overlay input,#nick-overlay input,#policy-overlay input,#text-overlay input,#duel-overlay input{width:80%;max-width:400px;padding:15px;font-size:20px;text-align:center;font-family:"Courier New",monospace;border:2px solid #fc0;background:#111;color:#fff;border-radius:8px;outline:none;margin-bottom:20px}
 #code-overlay button,#nick-overlay button,#warn-overlay button,#policy-overlay button,#text-overlay button,#duel-overlay button{padding:15px 40px;font-size:18px;font-weight:bold;font-family:"Courier New",monospace;border-radius:8px;border:none;cursor:pointer;margin:10px;color:#fff}
 .btn-green{background:#2a7}.btn-red{background:#e33}.btn-blue{background:#357}
-#chat-wrapper{position:fixed;bottom:20px;left:20px;z-index:500;display:none;flex-direction:column}
+#chat-wrapper{position:fixed;bottom:10px;left:10px;z-index:500;display:none;flex-direction:column}
 #chat-messages{width:250px;height:120px;background:rgba(0,0,0,0.6);color:#fff;font-family:monospace;font-size:12px;padding:5px;overflow-y:hidden;border-radius:5px 5px 0 0;display:flex;flex-direction:column;justify-content:flex-end}
 #chat-input-area{display:flex;width:250px}
 #chat-input{flex:1;padding:5px;font-size:12px;border:1px solid #fc0;background:rgba(0,0,0,0.8);color:#fff;outline:none}
@@ -195,41 +195,16 @@ function submitNick() {
 }
 if (myNick) { document.getElementById('nick-overlay').style.display = 'none'; setTimeout(() => { if(socket.connected) socket.emit('getData', myNick); }, 1000); }
 
-// ===== РЕСАЙЗ (УЛУЧШЕН ДЛЯ БРАУЗЕРОВ) =====
+// ===== РЕСАЙЗ (ОРИГИНАЛЬНЫЙ, С ПОВОРОТОМ) =====
 let W=800, H=500, isRotated=false, lastW=0, lastH=0, lastRot=false;
 function rs(){
-  const isPortrait = window.innerHeight > window.innerWidth;
-  
-  // Используем visualViewport для точного определения размера с учетом панелей браузера
-  const vv = window.visualViewport;
-  const w = vv ? vv.width : window.innerWidth;
-  const h = vv ? vv.height : window.innerHeight;
-
-  const newW = isPortrait ? h : w, newH = isPortrait ? w : h;
-  if(newW === lastW && newH === lastH && isPortrait === lastRot) return;
-  lastW = newW; lastH = newH; lastRot = isPortrait; isRotated = isPortrait;
-  
-  if(isPortrait){
-      wrap.classList.add('portrait');
-      wrap.style.width = newW + 'px';
-      wrap.style.height = newH + 'px';
-      W = newW; H = newH;
-  } else {
-      wrap.classList.remove('portrait');
-      wrap.style.width = newW + 'px';
-      wrap.style.height = newH + 'px';
-      W = newW; H = newH;
-  }
-  
-  const dpr=Math.min(window.devicePixelRatio||1,3);
-  c.width=Math.round(W*dpr);c.height=Math.round(H*dpr); 
-  g.setTransform(dpr,0,0,dpr,0,0); 
-  g.imageSmoothingEnabled=false;
+  const p=window.innerHeight>window.innerWidth;
+  const w=p?window.innerHeight:window.innerWidth,h=p?window.innerWidth:window.innerHeight;
+  if(w===lastW&&h===lastH&&p===lastRot)return;lastW=w;lastH=h;lastRot=p;isRotated=p;
+  if(p){wrap.classList.add('portrait');W=w;H=h}else{wrap.classList.remove('portrait');W=w;H=h}
+  const dpr=Math.min(window.devicePixelRatio||1,3);c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=false;
 }
-rs(); 
-window.addEventListener('resize',rs); 
-if (window.visualViewport) window.visualViewport.addEventListener('resize', rs);
-window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)}); setInterval(rs,200);
+rs(); window.addEventListener('resize',rs); window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)}); setInterval(rs,200);
 
 // ===== НАСТРОЙКИ =====
 let settings={volume:0.5,showFps:false};
@@ -438,7 +413,7 @@ function btn(t,x,y,w,h,f,col){
 
 function say(m){msg=m;mt=90}
 function txt(t,x,y,s,col,al){g.fillStyle=col||'#fff';g.font='bold '+s+'px sans-serif';g.textAlign=al||'left';g.textBaseline='alphabetic';g.fillText(t,x,y)}
-function backBtn(target){btn('← НАЗАД',20,20,Math.min(120,W*0.25),44,()=>S=target,'#b33')}
+function backBtn(target){btn('← НАЗАД',10,10,Math.min(120,W*0.25),44,()=>S=target,'#b33')}
 function partsStats(){let sp=0,grip=0;for(const k of['fork','rim','tire','brake','drive','cockpit']){const p=PARTS[k][build[k]];if(p&&p.sp)sp+=p.sp;if(p&&p.grip)grip+=p.grip}return{sp,grip}}
 function bikeConfig(){
   let fCol = '#1d8a73'; try { if (BK[B] && BK[B].c) fCol = BK[B].c; if (cf && useCf && CL[cf.col]) fCol = CL[cf.col]; } catch(e) {}
@@ -594,7 +569,7 @@ function splash(){
   const bw=Math.min(280,w*.55),bh=Math.min(60,h*.1); btn('ПОНЯТНО',w/2-bw/2,h*.83,bw,bh,()=>{initAudio();S='menu'},'#2a7');
 }
 function settings_screen(){
-  g.fillStyle='#1a2030';g.fillRect(0,0,W,H); backBtn('menu');txt('НАСТРОЙКИ',W/2,54,Math.min(28,W*.05),'#fc0','center');
+  g.fillStyle='#1a2030';g.fillRect(0,0,W,H); backBtn('menu');txt('НАСТРОЙКИ',W/2,44,Math.min(28,W*.05),'#fc0','center');
   const startY=H*.25, lineH=Math.min(80,H*.15); const col1=W*0.15, col2=W*0.45, col3=W*0.65, col4=W*0.75; const bh=Math.min(50,H*.08);
   
   txt('ЗВУК', col1, startY+bh/2+5, Math.min(18,W*.032), '#fff'); 
@@ -609,10 +584,10 @@ function settings_screen(){
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
 function patchNotes(){
-  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,54,Math.min(22,W*.045),'#fc0','center');
-  let y = 100; const line = (text, color='#fff', size=14) => { txt(text, 30, y, size, color); y += 24; };
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');
+  let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
-  line('- ЭКРАН ПОДСТРАИВАЕТСЯ ПОД БРАУЗЕР (ANDROID/IOS).', '#fc0');
+  line('- ЭКРАН ВОЗВРАЩЕН В ОРИГИНАЛЬНЫЙ ПОВОРОТ.', '#fc0');
   line('- СКОРОСТЬ И МЕТРЫ СДВИНУТЫ, ЧТОБЫ НЕ ОБРЕЗАЛИСЬ.', '#0f0');
   line('- КНОПКА "МЕНЮ" В ИГРЕ СДВИНУТА ОТ КРАЯ.', '#fff');
   line('- УБРАН БАЙК "ДОМАШНИЙ".', '#f0f');
@@ -620,7 +595,7 @@ function patchNotes(){
   line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#0f0');
 }
 function releaseScreen(){
-  g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); txt('РЕЛИЗ MTB FREERIDE',W/2,54,Math.min(26,W*.05),'#e01','center');
+  g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); txt('РЕЛИЗ MTB FREERIDE',W/2,44,Math.min(26,W*.05),'#e01','center');
   let timeLeft = getTimeLeft();
   let timeStr = `${timeLeft.d}д ${timeLeft.h}ч ${timeLeft.m}м ${timeLeft.s}с`;
   txt('ДО ОФИЦИАЛЬНОГО РЕЛИЗА:', W/2, H*.35, 20, '#fff', 'center'); 
@@ -629,11 +604,11 @@ function releaseScreen(){
   btn('ОК', W/2-100, H*.7, 200, 55, ()=>S='menu', '#555');
 }
 function adminScreen(){
-  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu'); txt('АДМИН-МЕНЮ',W/2,54,Math.min(26,W*.05),'#f55','center');
-  txt(`Игроков в сети: ${onlinePlayersCount}`, 30, 100, 16, '#fff');
-  btn('ЗАГРУЗИТЬ ДАННЫЕ ВСЕХ', W/2-150, 130, 300, 40, ()=>{ socket.emit('adminGetAll'); }, '#357');
-  let y = 190; txt('Данные с сервера:', 30, y, 16, '#0f0'); y+=20;
-  if(serverPlayersList.length === 0) { txt('- Нажми кнопку выше', 40, y, 14, '#ccc'); } else { serverPlayersList.forEach(p => { if(y > H - 200) return; txt(`${p.nick} | $${Math.floor(p.money)} | ${p.device}`, 40, y, 14, '#fff'); y += 20; }); }
+  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu'); txt('АДМИН-МЕНЮ',W/2,44,Math.min(26,W*.05),'#f55','center');
+  txt(`Игроков в сети: ${onlinePlayersCount}`, 20, 90, 16, '#fff');
+  btn('ЗАГРУЗИТЬ ДАННЫЕ ВСЕХ', W/2-150, 120, 300, 40, ()=>{ socket.emit('adminGetAll'); }, '#357');
+  let y = 180; txt('Данные с сервера:', 20, y, 16, '#0f0'); y+=20;
+  if(serverPlayersList.length === 0) { txt('- Нажми кнопку выше', 30, y, 14, '#ccc'); } else { serverPlayersList.forEach(p => { if(y > H - 200) return; txt(`${p.nick} | $${Math.floor(p.money)} | ${p.device}`, 30, y, 14, '#fff'); y += 20; }); }
   
   btn('ВЫДАТЬ ВСЁ (СЕБЕ)', W/2-150, H*.65, 300, 40, ()=>{ activateDevCode('ADMIN'); say('ВСЕ ВЫДАНО!'); }, '#2a7');
   btn('ВЫДАТЬ СУПЕР-БАЙК', W/2-150, H*.73, 300, 40, ()=>{ own[11] = 1; superBikeUnlocked = true; save(); say('РАЗБЛОКИРОВАН!'); }, '#0ff');
@@ -644,8 +619,8 @@ function adminScreen(){
   }, '#e33');
 }
 function recordsScreen(){
-  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ЗАЛ СЛАВЫ',W/2,54,Math.min(26,W*.05),'#fc0','center');
-  let y = 100; const line = (text, color='#fff', size=16) => { txt(text, 30, y, size, color); y += 24; };
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ЗАЛ СЛАВЫ',W/2,44,Math.min(26,W*.05),'#fc0','center');
+  let y = 90; const line = (text, color='#fff', size=16) => { txt(text, 20, y, size, color); y += 24; };
   line('ЛУЧШИЕ ИГРОКИ:', '#0f0', 18); line('1. Первый, кто купит MTB 2016-12: ---', '#fff'); line('2. Лучший рекорд в Дёрте: ' + dropBest, '#fff'); line('3. Лучший рекорд в Трюках: ' + Math.floor(stuntBest), '#fff'); line('4. Лучший заезд: ' + best + ' метров', '#fff');
   y += 20; line('СУПЕР-БАЙК:', '#0f0', 18); line('Статус: ' + (superBikeUnlocked ? 'РАЗБЛОКИРОВАН' : 'ЗАКРЫТ'), superBikeUnlocked ? '#0f0' : '#f55'); line('Улучшение 400 км/ч: ' + (ownedParts.super_upg && ownedParts.super_upg[1] ? 'КУПЛЕНО' : 'НЕТ'), '#fff');
   btn('ОК', W/2-100, H*.8, 200, 55, ()=>S='menu', '#555');
@@ -660,14 +635,13 @@ function getTimeLeft() {
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
   
-  // Сдвигаем весь текст от краев
-  txt('MTB FREERIDE',W-150,H*.12,Math.min(30,W*.055),'#fc0','right');
-  txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W-150,H*.18,Math.min(14,W*.025),'#fff','right');
+  txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
+  txt('$'+Math.floor($)+'   МЕТ '+M+'   Рек '+best+'м',W/2,H*.12,Math.min(14,W*.025),'#fff','center');
   
-  txt('Ник: ' + myNick, 40, H - 40, 14, '#8cf', 'left');
-  txt('В СЕТИ: ' + onlinePlayersCount, W - 40, H - 40, 14, '#0f0', 'right');
+  txt('Ник: ' + myNick, 20, H - 20, 14, '#8cf', 'left');
+  txt('В СЕТИ: ' + onlinePlayersCount, W - 20, H - 20, 14, '#0f0', 'right');
 
-  const cardW = W*0.07; const cardH = H*0.12; const startX = 40; const startY = H*0.20;
+  const cardW = W*0.07; const cardH = H*0.12; const startX = 15; const startY = H*0.20;
   RD.forEach((r,i)=>{
     let col = i % 4; let row = Math.floor(i / 4); let x = startX + col * (cardW + 5); let y = startY + row * (cardH + 5);
     g.fillStyle = i===R ? '#3a5a7a' : '#223'; g.fillRect(x, y, cardW, cardH);
@@ -678,8 +652,8 @@ function menu(){
     btns.push({x, y, w:cardW, h:cardH, f:()=>{R=i; save();}});
   });
 
-  const previewX = W*0.75; const previewY = H*0.45;
-  g.fillStyle='rgba(0,0,0,0.3)'; g.fillRect(W*0.65, H*0.20, W*0.3, H*0.45); g.strokeStyle='#555'; g.lineWidth=1; g.strokeRect(W*0.65, H*0.20, W*0.3, H*0.45);
+  const previewX = W*0.65; const previewY = H*0.4;
+  g.fillStyle='rgba(0,0,0,0.3)'; g.fillRect(W*0.55, H*0.15, W*0.4, H*0.45); g.strokeStyle='#555'; g.lineWidth=1; g.strokeRect(W*0.55, H*0.15, W*0.4, H*0.45);
   g.save(); g.translate(previewX, previewY); g.scale(2.0, 2.0);
   let rg = RD[R].g; let previewConfig = {frameCol: rg.b, rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'}; let customGear = {j: rg.j, p: rg.p, h: rg.h, rb: rg.rb && unlocked.rbHelmet, showHelmet: previewHelmet};
   drawBike(0, 0, true, previewConfig, {}, false, customGear); g.restore();
@@ -688,7 +662,7 @@ function menu(){
   const bw=Math.min(180,(W-40)/2-8), bh=Math.min(48,H*.075); const row1y = H*0.65;
   btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{ if(useCf && cf || useCf && asm2.done) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { say('Мало МЕТ!'); } } else { if(!tutorialDone)startAssemble(); else startLoading(start); } },'#2a7');
   
-  const row2y=row1y+bh+15,bw2=Math.min(70,(W-80)/8-5),row2x=(W-bw2*8-7*5)/2;
+  const row2y=row1y+bh+15,bw2=Math.min(70,(W-40)/8-5),row2x=(W-bw2*8-7*5)/2;
   btn('ОДЕЖ',row2x,row2y,bw2,bh,()=>S='dress','#74a'); 
   btn('МАГАЗ',row2x+(bw2+5),row2y,bw2,bh,()=>S='shop','#a62'); 
   btn('ГАРАЖ',row2x+(bw2+5)*2,row2y,bw2,bh,()=>S='garage','#e70');
@@ -705,17 +679,15 @@ function menu(){
   btn('КОМНАТА РЕЛИЗА', (W-280)/2, row4y, 130, bh*.85, ()=>S='releaseRoom','#e01');
   btn('ТРАССА: '+TR[tr].n, (W-280)/2 + 140, row4y, 140, bh*.85, ()=>{tr=(tr+1)%4;save()},'#555');
 
-  // СДВИНУТЫ КНОПКИ СПРАВА, ЧТОБЫ НЕ ОБРЕЗАЛИСЬ
-  const rightBtnX = W - 140;
-  btn('РЕЛИЗ', rightBtnX, H-200, 100, 32, ()=>S='release', '#e01'); 
-  btn('РЕКОРДЫ', rightBtnX, H-162, 100, 32, ()=>S='records', '#f60');
-  btn('ОБНОВ', rightBtnX, H-124, 100, 32, ()=>S='patch', '#357'); 
-  btn('ВВЕСТИ КОД',rightBtnX,H-86,100,32,()=>{openCodeUI()},'#0aa');
+  const rightBtnX = W - 100;
+  btn('РЕЛИЗ', rightBtnX, H-200, 90, 30, ()=>S='release', '#e01'); 
+  btn('РЕКОРДЫ', rightBtnX, H-165, 90, 30, ()=>S='records', '#f60');
+  btn('ОБНОВ', rightBtnX, H-130, 90, 30, ()=>S='patch', '#357'); 
+  btn('ВВЕСТИ КОД',rightBtnX,H-95,90,30,()=>{openCodeUI()},'#0aa');
   
-  // СДВИНУТА КНОПКА НАСТРОЕК
-  btn('⚙ НАСТРОЙКИ', W-180, H-80, 160, 45, ()=>S='settings', '#555');
+  btn('⚙ НАСТРОЙКИ', W-120, H-60, 110, 45, ()=>S='settings', '#555');
 
-  if(isDevMode) btn('АДМИНКА', 30, H-80, 120, 45, ()=>S='admin', '#f55');
+  if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
 }
 
 function releaseRoom() {
@@ -754,7 +726,7 @@ function duelMode(dt){
   const pStats=partsStats(); let vmax = BK[B].v + (cfS() + pStats.sp)*5;
   if(B === 11) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 40 : 25;
 
-  const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-40,gasCY=H-btnR-40,brakeCX=btnR+40,brakeCY=H-btnR-40,jumpCX=W/2,jumpCY=H-btnR-40,trickCX=W/2+(btnR+40),trickCY=H-btnR-40;
+  const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-20,gasCY=H-btnR-25,brakeCX=btnR+20,brakeCY=H-btnR-25,jumpCX=W/2,jumpCY=H-btnR-25,trickCX=W/2+(btnR+20),trickCY=H-btnR-25;
   let isBraking=false;
   
   if(!cr){
@@ -806,21 +778,21 @@ function duelMode(dt){
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
     
     // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДУЭЛЬ)
-    btn('МЕНЮ', W-120, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
+    btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(cr>40){
     finishDuel(duelState.opponentId, myNick);
   }
 }
 
 function workshop2(){
-  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('МАСТЕРСКАЯ 2.0',W/2,54,Math.min(22,W*.045),'#3c9','center');
+  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('МАСТЕРСКАЯ 2.0',W/2,44,Math.min(22,W*.045),'#3c9','center');
   if(asm2.done){ txt('ВЕЛИК СОБРАН!', W/2, H*.3, 30, '#0f0', 'center'); txt('Макс. скорость: 150 км/ч', W/2, H*.4, 18, '#fff', 'center'); txt('Стоимость: 10 МЕТ', W/2, H*.48, 18, '#fc0', 'center'); if(useCf) btn('СНЯТЬ С ГОНКИ', W/2-150, H*.65, 300, 60, ()=>{useCf=false;save()}, '#b33'); else btn('ПОСТАВИТЬ НА ГОНКУ', W/2-150, H*.65, 300, 60, ()=>{useCf=true;save()}, '#2a7'); }
   else { const step = Math.min(asm2.step, 19); txt('СБОРКА ВЕЛИКА', W/2, H*.15, 24, '#fc0', 'center'); txt('Шаг ' + (step+1) + ' из 20', W/2, H*.23, 16, '#ccc', 'center'); const bw = Math.min(400, W-60); const bx = (W-bw)/2, by = H*.3; g.fillStyle='#333';g.fillRect(bx,by,bw,20); g.fillStyle='#3c9';g.fillRect(bx,by,bw*(step/20),20); g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(bx,by,bw,20); g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(W/2-180, H*.45, 360, 80); g.strokeStyle='#3c9';g.lineWidth=2;g.strokeRect(W/2-180, H*.45, 360, 80); let text = STEPS2[step]; txt(text, W/2, H*.45+45, Math.min(18, (360/text.length)*1.5), '#fff', 'center'); btn('ВЫПОЛНИТЬ ШАГ', W/2-150, H*.68, 300, 60, ()=>{ asm2.step++; if(asm2.step >= 20) { asm2.done = true; useCf = true; save(); say('ВЕЛИК СОБРАН!'); } save(); }, '#3c9'); }
 }
 function workshop(){
-  g.fillStyle='#2a2320';g.fillRect(0,0,W,H); backBtn('menu');txt('СВАРКА РАМЫ',W/2,54,Math.min(22,W*.045),'#fc0','center'); txt('$'+Math.floor($)+'  МЕТ '+M,30,85,14,'#0f0'); if(useCf) txt('КАСТОМ 150 КМ/Ч (10 МЕТ)', W/2, 100, 12, '#e33', 'center');
-  const x=30,y=H*.28,N=[4,3,7],rowW=W-60; ['Материал','Форма','Цвет'].forEach((n,i)=>{const yy=y+i*66;txt(n,x,yy-6,15,'#ccc'); btn('<',x+80,yy,50,42,()=>fd[i]=(fd[i]+N[i]-1)%N[i],'#555'); g.fillStyle=i==2?CL[fd[2]]:'#357';g.fillRect(x+140,yy,rowW-200,42); if(i<2){g.fillStyle='#fff';g.font='bold 14px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(i?GEO[fd[1]].n:MAT[fd[0]].n,x+140+(rowW-200)/2,yy+21)} btn('>',x+rowW-50,yy,50,42,()=>fd[i]=(fd[i]+1)%N[i],'#555')});
-  const by=y+215; btn('СВАРИТЬ',x,by,(W-60)/2,52,()=>{if(M>=MAT[fd[0]].c){M-=MAT[fd[0]].c;cf={m:fd[0],g:fd[1],col:fd[2]};useCf=true;save();say('Сварено')}else say('Мало')},'#a62'); btn((useCf?'V':'X')+' НА ВЕЛ',x+(W-60)/2+10,by,(W-60)/2,52,()=>{if(cf){useCf=!useCf;save()}},'#357'); btn('РАМА ур.'+fr+' (10М)',x,by+64,W-60,48,()=>{if(M>=10){M-=10;fr++;save()}else say('Мало')},'#2a7');
+  g.fillStyle='#2a2320';g.fillRect(0,0,W,H); backBtn('menu');txt('СВАРКА РАМЫ',W/2,44,Math.min(22,W*.045),'#fc0','center'); txt('$'+Math.floor($)+'  МЕТ '+M,20,72,14,'#0f0'); if(useCf) txt('КАСТОМ 150 КМ/Ч (10 МЕТ)', W/2, 90, 12, '#e33', 'center');
+  const x=20,y=H*.28,N=[4,3,7],rowW=W-40; ['Материал','Форма','Цвет'].forEach((n,i)=>{const yy=y+i*66;txt(n,x,yy-6,15,'#ccc'); btn('<',x+80,yy,50,42,()=>fd[i]=(fd[i]+N[i]-1)%N[i],'#555'); g.fillStyle=i==2?CL[fd[2]]:'#357';g.fillRect(x+140,yy,rowW-200,42); if(i<2){g.fillStyle='#fff';g.font='bold 14px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(i?GEO[fd[1]].n:MAT[fd[0]].n,x+140+(rowW-200)/2,yy+21)} btn('>',x+rowW-50,yy,50,42,()=>fd[i]=(fd[i]+1)%N[i],'#555')});
+  const by=y+215; btn('СВАРИТЬ',x,by,(W-50)/2,52,()=>{if(M>=MAT[fd[0]].c){M-=MAT[fd[0]].c;cf={m:fd[0],g:fd[1],col:fd[2]};useCf=true;save();say('Сварено')}else say('Мало')},'#a62'); btn((useCf?'V':'X')+' НА ВЕЛ',x+(W-50)/2+10,by,(W-50)/2,52,()=>{if(cf){useCf=!useCf;save()}},'#357'); btn('РАМА ур.'+fr+' (10М)',x,by+64,W-40,48,()=>{if(M>=10){M-=10;fr++;save()}else say('Мало')},'#2a7');
 }
 function startAssemble(){asm={step:0,level:asmLevel,bolts:[],parts:[],pumps:0,helpTimer:0,rewarded:false};startLoading(()=>{S='assemble'})}
 function assemble(dt){
@@ -861,7 +833,7 @@ function stunt(dt){
       circleBtn(gasCX, gasCY, btnR, '#2a7', drawChainring, null, true); txt('ГАЗ', gasCX, gasCY + btnR + 15, 14, '#2a7', 'center'); 
       circleBtn(stuntCX, stuntCY, btnR, '#e0e', drawStar, null, true); txt('ВИЛЛИ', stuntCX, stuntCY + btnR + 15, 14, '#e0e', 'center'); 
       // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ТРЮК)
-      btn('МЕНЮ', w-120, 40, 80, 40, ()=>{save();S='menu'},'#555');
+      btn('МЕНЮ', w-110, 40, 80, 40, ()=>{save();S='menu'},'#555');
   } else if(cr>40){ 
       g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); 
       txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); 
@@ -877,7 +849,7 @@ function ride(dt){
   const pStats=partsStats(); let vmax = BK[B].v + (cfS() + pStats.sp)*5;
   if(B === 11) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 40 : 25;
 
-  const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-40,gasCY=H-btnR-40,brakeCX=btnR+40,brakeCY=H-btnR-40,jumpCX=W/2,jumpCY=H-btnR-40,trickCX=W/2+(btnR+40),trickCY=H-btnR-40;
+  const btnR=Math.min(55,Math.min(W,H)*.11); const gasCX=W-btnR-20,gasCY=H-btnR-25,brakeCX=btnR+20,brakeCY=H-btnR-25,jumpCX=W/2,jumpCY=H-btnR-25,trickCX=W/2+(btnR+20),trickCY=H-btnR-25;
   let isBraking=false;
   if(!cr){
     if(!P.air){ const gas=heldCircle(gasCX,gasCY,btnR),brake=heldCircle(brakeCX,brakeCY,btnR); isBraking = brake; if(gas&&!brake)P.vx+=vmax*.025*fs; else if(brake&&!gas)P.vx-=vmax*.045*fs; else P.vx*=Math.pow(.985,fs); P.vx=Math.max(0,Math.min(vmax,P.vx)) }
@@ -947,7 +919,7 @@ function ride(dt){
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
     
     // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ЕЗДА)
-    btn('МЕНЮ', W-120, 40, 80, 40, ()=>{ best=Math.max(best,Math.floor(P.x/30)); save(); S='menu'; }, '#555');
+    btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ best=Math.max(best,Math.floor(P.x/30)); save(); S='menu'; }, '#555');
   }else if(cr>40){
     g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,H); txt('УПАЛ',W/2,H/2-50,30,'#f55','center'); txt('Проехал: '+Math.floor(P.x/30)+'м  Рекорд: '+best+'м',W/2,H/2-15,16,'#fff','center');
     btn('ЗАНОВО',W/2-Math.min(180,W*.35)-10,H/2+20,Math.min(180,W*.35),50,()=>{ if(asm2.done && useCf) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { S='menu'; say('Мало металла!'); } } else startLoading(start); },'#2a7');
@@ -1049,7 +1021,7 @@ function dirtModeFunc(dt){
       btn('СЕСТЬ НА ВЕЛ', w/2-100, 90, 200, 40, ()=>{ dirtMode.state='ride'; }, '#357');
       
       // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - ПЕШКОМ)
-      btn('МЕНЮ', w-120, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
+      btn('МЕНЮ', w-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   } else if(dirtMode.state === 'dig'){
       txt('КОПАЕМ...', w/2, 40, 24, '#a62', 'center');
   } else if(dirtMode.state === 'ride'){
@@ -1058,7 +1030,7 @@ function dirtModeFunc(dt){
           circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true);
           
           // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - НА ВЕЛЕ)
-          btn('МЕНЮ', w-120, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
+          btn('МЕНЮ', w-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
       } else {
           txt('ДЕЛАЙ ТРЮК!', w/2, 40, 20, '#e70', 'center'); txt('+350$', w/2, 65, 14, '#fff', 'center');
           circleBtn(w*0.2, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1), null, true);
@@ -1069,7 +1041,7 @@ function dirtModeFunc(dt){
 
 function rbMenu(){
   g.fillStyle='#1a0000';g.fillRect(0,0,W,H); backBtn('menu'); 
-  txt('RED BULL RAMPAGE',W/2,54,Math.min(26,W*.05),'#d90000','center');
+  txt('RED BULL RAMPAGE',W/2,44,Math.min(26,W*.05),'#d90000','center');
   for(let i=1;i<=5;i++){
     const un=i===1||i<=rbLevel; const y=H*.18+(i-1)*Math.min(60,H*.12);
     if(!un){ g.fillStyle='#333';g.fillRect(30,y,W-60,48);txt('ЗАКРЫТО',110,y+30,14,'#777') }
@@ -1094,7 +1066,7 @@ function rb(dt){
   
   const vmax=8+rbLevel*1.5;
   const btnR=Math.min(55,Math.min(W,H)*.11);
-  const gx=W-btnR-40,gyC=H-btnR-40,bx=btnR+40,by=H-btnR-40,jx=W/2,jy=H-btnR-40;
+  const gx=W-btnR-20,gyC=H-btnR-25,bx=btnR+20,by=H-btnR-25,jx=W/2,jy=H-btnR-25;
   let isB=false;
 
   if(!rbFinished&&!cr){
@@ -1226,7 +1198,7 @@ function rb(dt){
     }
     
     // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (RED BULL)
-    btn('МЕНЮ', W-120, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
+    btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(rbFinished||cr>40){
     g.fillStyle='rgba(0,0,0,.8)';g.fillRect(0,0,W,H);
     if(rbFinished){
@@ -1243,16 +1215,16 @@ function rb(dt){
 }
 
 function garage(){
-  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРАЖ',W/2,54,Math.min(22,W*.045),'#e70','center'); txt('$'+Math.floor($)+'  МЕТ '+M,30,85,14,'#fc0');
+  g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРАЖ',W/2,44,Math.min(22,W*.045),'#e70','center'); txt('$'+Math.floor($)+'  МЕТ '+M,20,70,14,'#fc0');
   if(own[10] && !superBikeUnlocked) { superBikeUnlocked = true; own[11] = 1; save(); alert('ВЫ КУПИЛИ MTB 2016-12! СУПЕР-БАЙК РАЗБЛОКИРОВАН!'); }
   const previewCX=W*0.75,previewCY=H*.5;
   try { g.fillStyle='rgba(255,140,0,0.08)'; g.save(); g.translate(previewCX, previewCY+60); g.scale(1, 0.15); g.beginPath(); g.arc(0, 0, 140, 0, Math.PI*2); g.fill(); g.restore(); const grd=g.createRadialGradient(previewCX,previewCY,20,previewCX,previewCY,150); grd.addColorStop(0,'rgba(255,200,80,0.15)');grd.addColorStop(1,'rgba(255,200,80,0)'); g.fillStyle=grd;g.fillRect(previewCX-150,previewCY-150,300,300); g.save();g.translate(previewCX,previewCY);g.scale(2.0,2.0);drawBike(0,0,true,bikeConfig(),{},false);g.restore(); } catch(e) { txt('Ошибка', W*0.75, H*0.5, 14, '#f55', 'center'); }
   let tabs=['fork','rim','tire','brake','drive','cockpit']; if(B === 11) tabs.push('super_upg'); 
   const tabW=Math.min(70,(W*0.45)/6-3);
-  tabs.forEach((k,i)=>{const x=30+i*(tabW+3),y=100;const a=garageTab===k;g.fillStyle=a?'#e70':'#333';g.fillRect(x,y,tabW,26);g.strokeStyle=a?'#fc0':'#555';g.lineWidth=1;g.strokeRect(x,y,tabW,26);g.fillStyle='#fff';g.font='bold 10px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(CATNAMES[k],x+tabW/2,y+13);btns.push({x,y,w:tabW,h:26,f:()=>garageTab=k})});
+  tabs.forEach((k,i)=>{const x=10+i*(tabW+3),y=90;const a=garageTab===k;g.fillStyle=a?'#e70':'#333';g.fillRect(x,y,tabW,26);g.strokeStyle=a?'#fc0':'#555';g.lineWidth=1;g.strokeRect(x,y,tabW,26);g.fillStyle='#fff';g.font='bold 10px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(CATNAMES[k],x+tabW/2,y+13);btns.push({x,y,w:tabW,h:26,f:()=>garageTab=k})});
   const items=PARTS[garageTab]; if (!items) return;
   const colW=Math.min(150,(W*0.45)/2-5);const rowH=50;
-  items.forEach((it,i)=>{ const col=i%2,row=Math.floor(i/2); const x=30+col*(colW+10), y=140+row*(rowH+6); if(y+rowH>H-50)return; if (!ownedParts[garageTab]) ownedParts[garageTab] = [1,0,0,0,0];
+  items.forEach((it,i)=>{ const col=i%2,row=Math.floor(i/2); const x=10+col*(colW+10), y=130+row*(rowH+6); if(y+rowH>H-50)return; if (!ownedParts[garageTab]) ownedParts[garageTab] = [1,0,0,0,0];
     const isOwned = ownedParts[garageTab][i] ? 1 : 0; const isEq = build[garageTab] === i;
     g.fillStyle=isEq?'rgba(255,200,0,.15)':'rgba(60,60,80,.5)';g.fillRect(x,y,colW,rowH); g.strokeStyle=isEq?'#fc0':(isOwned?'#39f':'#666');g.lineWidth=isEq?2:1;g.strokeRect(x,y,colW,rowH); g.fillStyle='#fff';g.font='bold 11px sans-serif';g.textAlign='left';g.textBaseline='alphabetic';g.fillText(it.n,x+6,y+18);
     if(isEq){g.fillStyle='#fc0';g.font='bold 10px sans-serif';g.fillText('УСТАНОВЛЕНО',x+6,y+38)} else if(isOwned){g.fillStyle='#39f';g.fillText('УСТАНОВИТЬ',x+6,y+38)} else {g.fillStyle='#fc0';g.fillText('$'+it.price,x+6,y+38)}
@@ -1260,13 +1232,13 @@ function garage(){
   });
 }
 function shop(){
-  g.fillStyle='#2a2320';g.fillRect(0,0,W,H); backBtn('menu');txt('МАГАЗИН $'+Math.floor($),W/2,54,Math.min(22,W*.045),'#fc0','center'); const rowH=Math.min(42,H*.07);
-  BK.slice(pg*6,pg*6+6).forEach((b,j)=>{const i=pg*6+j;const y=90+j*(rowH+5); if(i === 11 && !superBikeUnlocked) return; btn(b.n+(own[i]?(B==i?' V':' (твой)'):' $'+b.p),30,y,W-60,rowH,()=>{if(own[i]){B=i;save()}else if($>=b.p){$-=b.p;own[i]=1;B=i;save()}else say('Мало')},own[i]?(B==i?'#2a7':'#357'):'#555')});
-  const bh=Math.min(45,H*.07); btn('◀',30,90+6*(rowH+5)+10,(W-70)/2,bh,()=>pg=Math.max(0,pg-1),'#555'); btn('▶',W/2+10,90+6*(rowH+5)+10,(W-70)/2,bh,()=>pg=Math.min(1,pg+1),'#555');
+  g.fillStyle='#2a2320';g.fillRect(0,0,W,H); backBtn('menu');txt('МАГАЗИН $'+Math.floor($),W/2,44,Math.min(22,W*.045),'#fc0','center'); const rowH=Math.min(42,H*.07);
+  BK.slice(pg*6,pg*6+6).forEach((b,j)=>{const i=pg*6+j;const y=78+j*(rowH+5); if(i === 11 && !superBikeUnlocked) return; btn(b.n+(own[i]?(B==i?' V':' (твой)'):' $'+b.p),10,y,W-20,rowH,()=>{if(own[i]){B=i;save()}else if($>=b.p){$-=b.p;own[i]=1;B=i;save()}else say('Мало')},own[i]?(B==i?'#2a7':'#357'):'#555')});
+  const bh=Math.min(45,H*.07); btn('◀',10,78+6*(rowH+5)+10,(W-40)/2,bh,()=>pg=Math.max(0,pg-1),'#555'); btn('▶',W/2+5,78+6*(rowH+5)+10,(W-40)/2,bh,()=>pg=Math.min(1,pg+1),'#555');
 }
 function dress(){
-  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРДЕРОБ',W/2,54,Math.min(22,W*.045),'#fc0','center'); g.save();g.translate(W*0.78,H*0.5);g.scale(1.5,1.5);drawBike(0,0,true,undefined,{},false);g.restore();
-  const items=[{n:'Шлем',get:()=>gear.helmet,set:c=>gear.helmet=c},{n:'Куртка',get:()=>gear.jersey,set:c=>gear.jersey=c},{n:'Штаны',get:()=>gear.pants,set:c=>gear.pants=c}]; const bx=30, by=90; const btnW=45, btnH=36; const colorW=90;
+  g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРДЕРОБ',W/2,44,Math.min(22,W*.045),'#fc0','center'); g.save();g.translate(W*0.78,H*0.5);g.scale(1.5,1.5);drawBike(0,0,true,undefined,{},false);g.restore();
+  const items=[{n:'Шлем',get:()=>gear.helmet,set:c=>gear.helmet=c},{n:'Куртка',get:()=>gear.jersey,set:c=>gear.jersey=c},{n:'Штаны',get:()=>gear.pants,set:c=>gear.pants=c}]; const bx=20, by=80; const btnW=45, btnH=36; const colorW=90;
   items.forEach((it,i)=>{ const y=by+i*55; txt(it.n,bx,y+btnH/2+5,14,'#ccc'); btn('<',bx+70,y,btnW,btnH,()=>{const idx=CL.indexOf(it.get());it.set(CL[(idx+CL.length-1)%CL.length]);save()},'#555'); g.fillStyle=it.get();g.fillRect(bx+70+btnW+10,y,colorW,btnH); g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(bx+70+btnW+10,y,colorW,btnH); btn('>',bx+70+btnW+10+colorW+10,y,btnW,btnH,()=>{const idx=CL.indexOf(it.get());it.set(CL[(idx+1)%CL.length]);save()},'#555'); });
   const fx = W*0.65; const fy = H - 190; const fW = W*0.3;
   g.fillStyle=unlocked.foxHelmet?'#e10600':'#444';g.fillRect(fx,fy,fW,36); txt(unlocked.foxHelmet?(gear.fox?'V ':'')+'FOX ШЛЕМ':'X FOX ШЛЕМ',fx+10,fy+22,13,'#fff'); if(unlocked.foxHelmet)btns.push({x:fx,y:fy,w:fW,h:36,f:()=>{gear.fox=!gear.fox; if(gear.fox) gear.rbHelmet=false; save()}});

@@ -84,7 +84,6 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 </div>
 
 <script>
-// ОТКЛЮЧАЕМ КОНТЕКСТНОЕ МЕНЮ (ПКМ) НА ВСЕМ САЙТЕ
 window.addEventListener('contextmenu', e => e.preventDefault());
 
 const c=document.getElementById('c'),g=c.getContext('2d',{alpha:false});
@@ -112,7 +111,17 @@ socket.on('loadDataFromServer', (data) => {
     if(data.isDevMode !== undefined) isDevMode = data.isDevMode; 
     if(data.gear) Object.assign(gear, data.gear);
     if(data.unlocked) Object.assign(unlocked, data.unlocked);
+    if(data.superBikeUnlocked !== undefined) superBikeUnlocked = data.superBikeUnlocked; // Синхронизация супербайка
     saveLocal(); 
+});
+
+// Событие глобального изъятия супербайка
+socket.on('superBikeWiped', () => {
+    own[12] = 0;
+    superBikeUnlocked = false;
+    if (B === 12) B = 0; // Если игрок ехал на нем, пересаживаем на сток
+    saveLocal();
+    alert('⚠ ВНИМАНИЕ! Администратор забрал Супер-Байк у всех игроков!');
 });
 
 socket.on('adminGetAllResult', (players) => { serverPlayersList = players; alert("Данные загружены!"); });
@@ -209,7 +218,7 @@ let audioCtx=null;
 function initAudio(){try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
 function beep(freq,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),gn=audioCtx.createGain();o.type='sine';o.frequency.value=freq;const v=vol!==undefined?vol:settings.volume;if(v<=0)return;gn.gain.value=v*0.15;gn.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);o.connect(gn).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 
-// ===== ДАННЫЕ (СКОРОСТИ) =====
+// ===== ДАННЫЕ =====
 const RD=[
   {n:'Даша',t:'Обычный',s:5,col:'#4af',g:{h:'#4af', j:'#e33', p:'#222', b:'#1d8a73'}},
   {n:'Николай',t:'Ультрадивайн',s:7,col:'#f4a',g:{h:'#f4a', j:'#222', p:'#111', b:'#444'}},
@@ -288,7 +297,7 @@ function save(){
     if(socket.connected && myNick) { 
         socket.emit('saveData', { 
             nick: myNick, money: $, metal: M, best: best, device: deviceType, ownedBikes: own,
-            isDevMode: isDevMode, gear: gear, unlocked: unlocked
+            isDevMode: isDevMode, gear: gear, unlocked: unlocked, superBikeUnlocked: superBikeUnlocked // ТЕПЕРЬ СОХРАНЯЕТСЯ И НА СЕРВЕРЕ
         }); 
     }
 }
@@ -419,13 +428,12 @@ function bikeConfig(){
 }
 const cfS=()=>cf&&useCf?MAT[cf.m].sp+GEO[cf.g].sp:0,cfF=()=>cf&&useCf?GEO[cf.g].fl:0;
 
-// ИЗМЕНЕННАЯ ЗЕМЛЯ: В ПУСТЫНЕ ПОЯВЛЯЮТСЯ 9-МЕТРОВЫЕ ДРОПЫ
 const T=x=>{
     let base = H*.75+(Math.sin(x/90)*22+Math.sin(x/37)*9+Math.sin(x/230)*35)*TR[tr].amp;
     if (tr === 1) {
         let gapPos = x % 1000;
         if (gapPos > 400 && gapPos < 750) {
-            base += 55; // 55 пикселей ≈ 9 метров
+            base += 55; 
         }
     }
     return base;
@@ -569,10 +577,7 @@ function settings_screen(){
   g.fillStyle='#1a2030';g.fillRect(0,0,W,H); backBtn('menu');txt('НАСТРОЙКИ',W/2,44,Math.min(28,W*.05),'#fc0','center');
   const startY=H*.25, lineH=Math.min(80,H*.15); const col1=W*0.15, col2=W*0.45, col3=W*0.65, col4=W*0.75; const bh=Math.min(50,H*.08);
   txt('ЗВУК', col1, startY+bh/2+5, Math.min(18,W*.032), '#fff'); btn('<', col2, startY, 60, bh, ()=>{settings.volume=Math.max(0, settings.volume-0.1);saveSettings()}, '#555'); txt(Math.round(settings.volume*100)+'%', col3, startY+bh/2+5, Math.min(18,W*.032), '#fc0', 'center'); btn('>', col4, startY, 60, bh, ()=>{settings.volume=Math.min(1, settings.volume+0.1);saveSettings()}, '#555');
-  
-  // Убрали настройку масштаба, так как теперь экран всегда идеально ровный
   txt('СЧЁТЧИК FPS', col1, startY+lineH+bh/2+5, Math.min(18,W*.032), '#fff'); btn(settings.showFps?'ВКЛ':'ВЫКЛ', col2, startY+lineH, Math.min(140,W*.15), bh, ()=>{settings.showFps=!settings.showFps;saveSettings()}, settings.showFps?'#2a7':'#444');
-  
   btn('СМЕНИТЬ НИК',W/2-Math.min(280,W*.5)/2, H*.65,Math.min(280,W*.5),Math.min(52,H*.08),()=>{ document.getElementById('nick-input').value = myNick; document.getElementById('nick-overlay').style.display = 'flex'; },'#357');
   btn('СБРОСИТЬ ПРОГРЕСС',W/2-Math.min(280,W*.5)/2,H*.75,Math.min(280,W*.5),Math.min(52,H*.08),()=>{if(confirm('Удалить весь прогресс?')){localStorage.removeItem(SK);loadData();S='menu'}},'#933');
 }
@@ -580,9 +585,10 @@ function patchNotes(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
-  line('- ИСПРАВЛЕН БАГ С МАСШТАБОМ ЭКРАНА.', '#fc0');
-  line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#0f0');
-  line('- ДОБАВЛЕНА КНОПКА НАСТРОЕК В ИГРЕ (СПРАВА СВЕРХУ).', '#fff');
+  line('- АДМИНКА: КНОПКА "ЗАБРАТЬ БАЙК У ВСЕХ".', '#fc0');
+  line('- СУПЕР-БАЙК ТЕПЕРЬ СОХРАНЯЕТСЯ НА СЕРВЕРЕ.', '#0f0');
+  line('- ИСПРАВЛЕН БАГ С МАСШТАБОМ ЭКРАНА.', '#fff');
+  line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#f0f');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- УЛУЧШЕНЫ КНОПКИ ДЛЯ СЕНСОРА (ТОЧНОЕ НАЖАТИЕ).', '#0f0');
 }
@@ -600,9 +606,15 @@ function adminScreen(){
   txt(`Игроков в сети: ${onlinePlayersCount}`, 20, 90, 16, '#fff');
   btn('ЗАГРУЗИТЬ ДАННЫЕ ВСЕХ', W/2-150, 120, 300, 40, ()=>{ socket.emit('adminGetAll'); }, '#357');
   let y = 180; txt('Данные с сервера:', 20, y, 16, '#0f0'); y+=20;
-  if(serverPlayersList.length === 0) { txt('- Нажми кнопку выше', 30, y, 14, '#ccc'); } else { serverPlayersList.forEach(p => { if(y > H - 100) return; txt(`${p.nick} | $${Math.floor(p.money)} | ${p.device}`, 30, y, 14, '#fff'); y += 20; }); }
-  btn('ВЫДАТЬ ВСЁ (СЕБЕ)', W/2-150, H*.75, 300, 50, ()=>{ activateDevCode('ADMIN'); say('ВСЕ ВЫДАНО!'); }, '#2a7');
-  btn('ВЫДАТЬ СУПЕР-БАЙК', W/2-150, H*.85, 300, 50, ()=>{ own[12] = 1; superBikeUnlocked = true; save(); say('РАЗБЛОКИРОВАН!'); }, '#0ff');
+  if(serverPlayersList.length === 0) { txt('- Нажми кнопку выше', 30, y, 14, '#ccc'); } else { serverPlayersList.forEach(p => { if(y > H - 200) return; txt(`${p.nick} | $${Math.floor(p.money)} | ${p.device}`, 30, y, 14, '#fff'); y += 20; }); }
+  
+  btn('ВЫДАТЬ ВСЁ (СЕБЕ)', W/2-150, H*.65, 300, 40, ()=>{ activateDevCode('ADMIN'); say('ВСЕ ВЫДАНО!'); }, '#2a7');
+  btn('ВЫДАТЬ СУПЕР-БАЙК', W/2-150, H*.73, 300, 40, ()=>{ own[12] = 1; superBikeUnlocked = true; save(); say('РАЗБЛОКИРОВАН!'); }, '#0ff');
+  btn('ЗАБРАТЬ БАЙК У ВСЕХ', W/2-150, H*.81, 300, 40, ()=>{ 
+      if(confirm('Вы уверены, что хотите забрать Супер-Байк У ВСЕХ игроков?')) {
+          socket.emit('adminWipeSuperBike'); 
+      }
+  }, '#e33');
 }
 function recordsScreen(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ЗАЛ СЛАВЫ',W/2,44,Math.min(26,W*.05),'#fc0','center');
@@ -612,14 +624,12 @@ function recordsScreen(){
   btn('ОК', W/2-100, H*.8, 200, 55, ()=>S='menu', '#555');
 }
 
-// ===== ТАЙМЕР =====
 function getTimeLeft() {
     let now = new Date().getTime(); let diff = releaseTarget - now; if (diff < 0) diff = 0;
     let d = Math.floor(diff / (1000 * 60 * 60 * 24)); let h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); let s = Math.floor((diff % (1000 * 60)) / 1000);
     return { d, h, m, s, diff };
 }
 
-// ===== МЕНЮ =====
 function menu(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H);
   txt('MTB FREERIDE',W/2,H*.06,Math.min(30,W*.055),'#fc0','center');
@@ -682,7 +692,6 @@ function releaseRoom() {
     txt('Скоро', W/2, H*.45, 40, '#fc0', 'center');
 }
 
-// ===== РЕЖИМ ДУЭЛИ =====
 function duelMode(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
@@ -747,7 +756,6 @@ function duelMode(dt){
   }
 }
 
-// ===== МАСТЕРСКИЕ И ГАРАЖ (СОКРАЩЕНО) =====
 function workshop2(){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('МАСТЕРСКАЯ 2.0',W/2,44,Math.min(22,W*.045),'#3c9','center');
   if(asm2.done){ txt('ВЕЛИК СОБРАН!', W/2, H*.3, 30, '#0f0', 'center'); txt('Макс. скорость: 150 км/ч', W/2, H*.4, 18, '#fff', 'center'); txt('Стоимость: 10 МЕТ', W/2, H*.48, 18, '#fc0', 'center'); if(useCf) btn('СНЯТЬ С ГОНКИ', W/2-150, H*.65, 300, 60, ()=>{useCf=false;save()}, '#b33'); else btn('ПОСТАВИТЬ НА ГОНКУ', W/2-150, H*.65, 300, 60, ()=>{useCf=true;save()}, '#2a7'); }
@@ -783,7 +791,6 @@ function assemble(dt){
   }
 }
 
-// ===== STUNT =====
 function stunt(dt){
   const w=W,h=H;const fs=Math.min(3,dt*60); const gy=h*0.8; const btnR=Math.min(60,w*0.1); const gasCX=w*0.25, gasCY=h-btnR-20; const stuntCX=w*0.75, stuntCY=h-btnR-20;
   const isGas=heldCircle(gasCX,gasCY,btnR), isStunt=heldCircle(stuntCX,stuntCY,btnR);
@@ -798,7 +805,6 @@ function stunt(dt){
   } else if(cr>40){ g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); btn('ЗАНОВО',w/2-160,h/2+50,150,50,()=>{cr=0;P={x:0,y:0,a:0,stuntSpeed:0};stuntPoints=0},'#e0e'); btn('МЕНЮ',w/2+10,h/2+50,150,50,()=>{save();S='menu'},'#555'); }
 }
 
-// ===== ОБЫЧНАЯ ЕЗДА (С ДРОПАМИ В ПУСТЫНЕ) =====
 function ride(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
@@ -819,10 +825,7 @@ function ride(dt){
       if(trick.name){ trick.t -= dt; if(trick.t <= 0) trick.t = 0; }
       if(P.y>=gy&&P.vy>0){
         P.air=0;const d=Math.atan2(Math.sin(P.a),Math.cos(P.a));const fl=Math.round(Math.abs(P.tot)/6.2832);
-        
-        let safeAngle = 1.5; 
-        if (tr === 1) safeAngle = 0.7; 
-
+        let safeAngle = 1.5; if (tr === 1) safeAngle = 0.7; 
         let requireBrake = false; if(B === 12 && P.vx > 15) { safeAngle = 0.8; requireBrake = true; }
         let landedSafe = Math.abs(d-sl) < safeAngle; if(requireBrake && !isBraking) landedSafe = false; 
         if(landedSafe){ if(fl>0){const money=fl*(r>0?30:80);$+=money;say(fl+'x +$'+money);missions.flip5.prog+=fl} }
@@ -881,7 +884,6 @@ function ride(dt){
 function drawMissions(){g.fillStyle='rgba(0,0,0,0.6)';g.fillRect(10, 65, 155, 85);txt('МИССИИ', 15, 80, 11, '#fc0');const list=[{k:'flip5',label:'5 флипов'},{k:'trick10',label:'10 трюков'},{k:'dist1000',label:'1000м'},{k:'metal20',label:'20 мет.'}];list.forEach((m,i)=>{const msn=missions[m.k];const y=95+i*13;txt((msn.done?'V ':'')+m.label+': '+Math.min(msn.prog,msn.need)+'/'+msn.need, 15, y, 9, msn.done?'#0f0':'#fff');});}
 function checkMissions(){ if(!missions.flip5.done&&missions.flip5.prog>=5){missions.flip5.done=true;unlocked.foxHelmet=true;say('МИССИЯ: FOX ШЛЕМ +$3000!');$+=3000;save();} if(!missions.trick10.done&&missions.trick10.prog>=10){missions.trick10.done=true;unlocked.foxChest=true;say('МИССИЯ: FOX ГРУДЬ +$3000!');$+=3000;save();} if(!missions.dist1000.done&&missions.dist1000.prog>=1000){missions.dist1000.done=true;unlocked.foxPants=true;say('МИССИЯ: FOX ШТАНЫ +$3000!');$+=3000;save();} if(!missions.metal20.done&&missions.metal20.prog>=20){missions.metal20.done=true;$+=5000;say('МИССИЯ: +$5000!');save();} }
 
-// ===== ДЁРТ =====
 function dirtModeFunc(dt){
   const fs=Math.min(3,dt*60), w=W, h=H;
   const groundY = h * 0.55; 
@@ -988,7 +990,6 @@ function dirtModeFunc(dt){
   }
 }
 
-// ===== RED BULL МЕНЮ =====
 function rbMenu(){
   g.fillStyle='#1a0000';g.fillRect(0,0,W,H); backBtn('menu'); 
   txt('RED BULL RAMPAGE',W/2,44,Math.min(26,W*.05),'#d90000','center');
@@ -1009,7 +1010,6 @@ function rbMenu(){
   }
 }
 
-// ===== РЕЖИМ RED BULL =====
 function rb(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
@@ -1162,7 +1162,6 @@ function rb(dt){
   }
 }
 
-// ===== МАГАЗИН И ГАРАЖ =====
 function garage(){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu');txt('ГАРАЖ',W/2,44,Math.min(22,W*.045),'#e70','center'); txt('$'+Math.floor($)+'  МЕТ '+M,20,70,14,'#fc0');
   if(own[10] && !superBikeUnlocked) { superBikeUnlocked = true; own[12] = 1; save(); alert('ВЫ КУПИЛИ MTB 2016-12! СУПЕР-БАЙК РАЗБЛОКИРОВАН!'); }
@@ -1196,7 +1195,6 @@ function dress(){
   g.fillStyle=unlocked.rbChest?'#0033cc':'#444';g.fillRect(fx,fy+126,fW,36); txt(unlocked.rbChest?(gear.rbChest?'V ':'')+'RED BULL ГРУДЬ':'X RED BULL ГРУДЬ',fx+10,fy+148,13,'#fff'); if(unlocked.rbChest)btns.push({x:fx,y:fy+126,w:fW,h:36,f:()=>{gear.rbChest=!gear.rbChest; if(gear.rbChest) gear.chest=false; save()}});
 }
 
-// ===== ЦИКЛ =====
 function startLoading(cb){loading.on=true;loading.p=0;loading.cb=cb}
 function start(){P={x:0,y:T(0)-GL*SC,vy:0,a:0,tot:0,air:0,vx:0};ms=[];nm=400;rp=[];nr=1000;cr=0;trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};rbLives=5;S='ride'}
 function loop(now){
@@ -1208,7 +1206,7 @@ function loop(now){
 
   try{
     if(loading.on){
-        loading.p += 0.05; // Фикс зависания загрузки
+        loading.p += 0.05; 
         if(loading.p>=1){
             loading.on=false;
             const cb=loading.cb;

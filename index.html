@@ -297,7 +297,7 @@ function save(){
     if(socket.connected && myNick) { 
         socket.emit('saveData', { 
             nick: myNick, money: $, metal: M, best: best, device: deviceType, ownedBikes: own,
-            isDevMode: isDevMode, gear: gear, unlocked: unlocked, superBikeUnlocked: superBikeUnlocked // ТЕПЕРЬ СОХРАНЯЕТСЯ И НА СЕРВЕРЕ
+            isDevMode: isDevMode, gear: gear, unlocked: unlocked, superBikeUnlocked: superBikeUnlocked 
         }); 
     }
 }
@@ -586,9 +586,9 @@ function patchNotes(){
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
   line('- АДМИНКА: КНОПКА "ЗАБРАТЬ БАЙК У ВСЕХ".', '#fc0');
-  line('- СУПЕР-БАЙК ТЕПЕРЬ СОХРАНЯЕТСЯ НА СЕРВЕРЕ.', '#0f0');
-  line('- ИСПРАВЛЕН БАГ С МАСШТАБОМ ЭКРАНА.', '#fff');
-  line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#f0f');
+  line('- В ИГРЕ ДОБАВЛЕНА КНОПКА "МЕНЮ" В ПРАВОМ ВЕРХНЕМ УГЛУ.', '#0f0');
+  line('- СУПЕР-БАЙК ТЕПЕРЬ СОХРАНЯЕТСЯ НА СЕРВЕРЕ.', '#fff');
+  line('- ИСПРАВЛЕН БАГ С МАСШТАБОМ ЭКРАНА.', '#f0f');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- УЛУЧШЕНЫ КНОПКИ ДЛЯ СЕНСОРА (ТОЧНОЕ НАЖАТИЕ).', '#0f0');
 }
@@ -750,7 +750,9 @@ function duelMode(dt){
   if(!cr){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
-    btn('⚙', W-50, 10, 44, 40, ()=>{ save(); S='menu'; }, '#555');
+    
+    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДУЭЛЬ)
+    btn('МЕНЮ', W-85, 20, 70, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(cr>40){
     finishDuel(duelState.opponentId, myNick);
   }
@@ -801,8 +803,17 @@ function stunt(dt){
   if(!cr) { g.save();g.translate(w*0.35,gy-(P.y||0));g.rotate(P.a);g.scale(SC,SC);drawBike(0,P.x,true,undefined,{},false);g.restore(); } else { g.save();g.translate(w*0.35,gy);g.rotate(1.5);g.scale(SC,-SC);drawBike(0,P.x,false,undefined,{},false);g.restore(); }
   txt('STUNT',w/2,30,22,'#e0e','center'); txt('Очки: '+Math.floor(stuntPoints)+'  Лучший: '+Math.floor(stuntBest),w/2,60,16,'#fc0','center');
   const barW=200,barH=12,bx=w/2-barW/2,by=80; g.fillStyle='rgba(0,0,0,0.5)';g.fillRect(bx,by,barW,barH); let pct = Math.max(0, Math.min(1, Math.abs(P.a) / 1.8)); g.fillStyle = P.a < -1.5 ? '#f55' : P.a < -0.9 ? '#fc0' : '#0f0'; g.fillRect(bx, by, barW*pct, barH); g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(bx,by,barW,barH); txt('БАЛАНС', w/2, by-8, 10, '#fff', 'center');
-  if(!cr){ circleBtn(gasCX, gasCY, btnR, '#2a7', drawChainring, null, true); txt('ГАЗ', gasCX, gasCY + btnR + 15, 14, '#2a7', 'center'); circleBtn(stuntCX, stuntCY, btnR, '#e0e', drawStar, null, true); txt('ВИЛЛИ', stuntCX, stuntCY + btnR + 15, 14, '#e0e', 'center'); btn('⚙',w-50,10,44,40,()=>{save();S='menu'},'#555');
-  } else if(cr>40){ g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); btn('ЗАНОВО',w/2-160,h/2+50,150,50,()=>{cr=0;P={x:0,y:0,a:0,stuntSpeed:0};stuntPoints=0},'#e0e'); btn('МЕНЮ',w/2+10,h/2+50,150,50,()=>{save();S='menu'},'#555'); }
+  if(!cr){ 
+      circleBtn(gasCX, gasCY, btnR, '#2a7', drawChainring, null, true); txt('ГАЗ', gasCX, gasCY + btnR + 15, 14, '#2a7', 'center'); 
+      circleBtn(stuntCX, stuntCY, btnR, '#e0e', drawStar, null, true); txt('ВИЛЛИ', stuntCX, stuntCY + btnR + 15, 14, '#e0e', 'center'); 
+      // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ТРЮК)
+      btn('МЕНЮ', w-85, 20, 70, 40, ()=>{save();S='menu'},'#555');
+  } else if(cr>40){ 
+      g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); 
+      txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); 
+      btn('ЗАНОВО',w/2-160,h/2+50,150,50,()=>{cr=0;P={x:0,y:0,a:0,stuntSpeed:0};stuntPoints=0},'#e0e'); 
+      btn('МЕНЮ',w/2+10,h/2+50,150,50,()=>{save();S='menu'},'#555'); 
+  }
 }
 
 function ride(dt){
@@ -874,7 +885,9 @@ function ride(dt){
   if(!cr){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
-    btn('⚙',W-50,10,44,40,()=>{best=Math.max(best,Math.floor(P.x/30));save();S='menu'},'#555')
+    
+    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ЕЗДА)
+    btn('МЕНЮ', W-85, 20, 70, 40, ()=>{ best=Math.max(best,Math.floor(P.x/30)); save(); S='menu'; }, '#555');
   }else if(cr>40){
     g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,H); txt('УПАЛ',W/2,H/2-50,30,'#f55','center'); txt('Проехал: '+Math.floor(P.x/30)+'м  Рекорд: '+best+'м',W/2,H/2-15,16,'#fff','center');
     btn('ЗАНОВО',W/2-Math.min(180,W*.35)-10,H/2+20,Math.min(180,W*.35),50,()=>{ if(asm2.done && useCf) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { S='menu'; say('Мало металла!'); } } else startLoading(start); },'#2a7');
@@ -974,14 +987,18 @@ function dirtModeFunc(dt){
       circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true);
       btn('КОПАТЬ', w/2-80, h-80, 160, 50, ()=>{ dirtMode.state='dig'; dirtMode.digTimer=0; }, '#a62');
       btn('СЕСТЬ НА ВЕЛ', w/2-100, 80, 200, 40, ()=>{ dirtMode.state='ride'; }, '#357');
-      btn('⚙', w-50, 10, 44, 40, ()=>{ save(); S='menu'; }, '#555');
+      
+      // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - ПЕШКОМ)
+      btn('МЕНЮ', w-85, 20, 70, 40, ()=>{ save(); S='menu'; }, '#555');
   } else if(dirtMode.state === 'dig'){
       txt('КОПАЕМ...', w/2, 30, 24, '#a62', 'center');
   } else if(dirtMode.state === 'ride'){
       if(!dirtMode.air){
           txt('РАЗГОНЯЙСЯ!', w/2, 30, 16, '#fc0', 'center');
           circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true);
-          btn('⚙', w-50, 10, 44, 40, ()=>{ save(); S='menu'; }, '#555');
+          
+          // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - НА ВЕЛЕ)
+          btn('МЕНЮ', w-85, 20, 70, 40, ()=>{ save(); S='menu'; }, '#555');
       } else {
           txt('ДЕЛАЙ ТРЮК!', w/2, 30, 20, '#e70', 'center'); txt('+350$', w/2, 55, 14, '#fff', 'center');
           circleBtn(w*0.2, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1), null, true);
@@ -1135,7 +1152,7 @@ function rb(dt){
   txt('Дист: '+rbDist+'/'+rbTarget+'м',15,48,14,'#fff');
   if(gear.rbHelmet&&unlocked.rbHelmet&&gear.rbChest&&unlocked.rbChest&&rbLives>0){txt('❤️x'+rbLives,W/2,26,16,'#e10600','center')}
 
-  btn('РАЗВЕРНУТЬСЯ', W-160, 10, 150, 40, ()=>{ rbCamDir *= -1; }, '#555');
+  btn('РАЗВЕРНУТЬСЯ', W-260, 20, 160, 40, ()=>{ rbCamDir *= -1; }, '#555');
 
   if(!cr&&!rbFinished){
     if(!P.air){
@@ -1146,7 +1163,9 @@ function rb(dt){
       circleBtn(bx,by,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,-1),null,true);
       circleBtn(gx,gyC,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,1),null,true)
     }
-    btn('⚙',W-50,60,44,40,()=>{save();S='menu'},'#555');
+    
+    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (RED BULL)
+    btn('МЕНЮ', W-85, 20, 70, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(rbFinished||cr>40){
     g.fillStyle='rgba(0,0,0,.8)';g.fillRect(0,0,W,H);
     if(rbFinished){

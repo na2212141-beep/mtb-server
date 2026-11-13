@@ -336,26 +336,28 @@ function activateDevCode(code) {
   alert('КОД АКТИВИРОВАН! Доступ к Админке открыт.');
 }
 
-// ===== ВВОД (УЛУЧШЕННЫЙ ДЛЯ СЕНСОРА) =====
+// ===== ВВОД (ТОЧНЫЙ, БЕЗ ХИТБОКСОВ) =====
 function transformTouch(cx,cy){ const s=settings.scale||1; let gx,gy; if(!isRotated){ gx=cx; gy=cy; } else { gx=cy; gy=H-cx; } return[(gx-W/2)/s+W/2,(gy-H/2)/s+H/2]; }
 
 function handleTap(cx,cy,id){
   const coords=transformTouch(cx,cy); const px=coords[0], py=coords[1]; ptr[id]=[px,py]; 
   
-  // УВЕЛИЧЕННЫЙ РАДИУС ДЛЯ ПАЛЬЦА (40 пикселей)
-  const touchPad = 40; 
-
+  // ХИТБОКС РАВЕН 0 (только точное попадание)
   for(let i = btns.length - 1; i >= 0; i--){
     const b = btns[i];
     if(b.cx !== undefined){ 
-        if(Math.hypot(px - b.cx, py - b.cy) <= b.r + touchPad){ 
+        // Для круглых кнопок (газ, тормоз)
+        if(Math.hypot(px - b.cx, py - b.cy) <= b.r){ 
             if(b.onTap){beep(700,0.05);b.onTap();return} 
             if(b.f && !b.hold){beep(700,0.05);b.f();return} 
         } 
     }
-    else if(px >= b.x - touchPad && px <= b.x + b.w + touchPad && py >= b.y - touchPad && py <= b.y + b.h + touchPad){ 
-        if(b.onTap){beep(700,0.05);b.onTap();return} 
-        if(b.f){beep(700,0.05);b.f();return} 
+    else {
+        // Для квадратных кнопок (меню)
+        if(px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h){ 
+            if(b.onTap){beep(700,0.05);b.onTap();return} 
+            if(b.f){beep(700,0.05);b.f();return} 
+        } 
     }
   }
 }
@@ -392,12 +394,12 @@ c.addEventListener('mousedown', e => {
 c.addEventListener('mouseup', e => { if(!isTouchDevice) handleUp('m'); });
 window.addEventListener('blur',()=>{ptr={}});
 
-// ===== ХЕЛПЕРЫ (С ВИЗУАЛЬНЫМ ОТКЛИКОМ) =====
+// ===== ХЕЛПЕРЫ =====
 function btn(t,x,y,w,h,f,col){
     const b={x,y,w,h,f};btns.push(b);
     
-    // Проверка нажатия
-    const pres = Object.values(ptr).some(p => p[0] >= x - 15 && p[0] <= x+w + 15 && p[1] >= y - 15 && p[1] <= y+h + 15);
+    // Проверка нажатия (ровно по кнопке)
+    const pres = Object.values(ptr).some(p => p[0] >= x && p[0] <= x+w && p[1] >= y && p[1] <= y+h);
 
     g.fillStyle = pres ? '#222' : (col || '#357');
     g.fillRect(x,y,w,h);
@@ -450,8 +452,8 @@ function heldCircle(cx,cy,r){return Object.values(ptr).some(p=>hitCircle(cx,cy,r
 function circleBtn(cx,cy,r,color,drawFn,f,hold){
     const b={cx,cy,r,f,hold:!!hold};btns.push(b);
     
-    // Проверка нажатия
-    const pres = hold ? heldCircle(cx,cy,r) : Object.values(ptr).some(p => Math.hypot(p[0]-cx, p[1]-cy) <= r + 15);
+    // Проверка нажатия (ровно по кругу)
+    const pres = hold ? heldCircle(cx,cy,r) : Object.values(ptr).some(p => Math.hypot(p[0]-cx, p[1]-cy) <= r);
 
     g.fillStyle='rgba(0,0,0,.6)';g.beginPath();g.arc(cx+3,cy+4,r,0,7);g.fill();
     g.fillStyle=hexA(color,pres?.75:.15);g.beginPath();g.arc(cx,cy,r,0,7);g.fill();
@@ -590,7 +592,7 @@ function patchNotes(){
   line('- RED BULL: СНИЖЕН ЗАРАБОТОК (ЭКОНОМИКА).', '#0f0');
   line('- СОХРАНЕНИЕ ЧЕРЕЗ БАЗУ ДАННЫХ (UPSTASH).', '#fff');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
-  line('- УЛУЧШЕНЫ КНОПКИ ДЛЯ СЕНСОРА (ANDROID).', '#0f0');
+  line('- УЛУЧШЕНЫ КНОПКИ ДЛЯ СЕНСОРА (ТОЧНОЕ НАЖАТИЕ).', '#0f0');
   line('- ИСПРАВЛЕНЫ АДМИНКА И СОХРАНЕНИЯ.', '#0f0');
 }
 function releaseScreen(){
@@ -805,7 +807,7 @@ function stunt(dt){
   } else if(cr>40){ g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); txt('УПАЛ!',w/2,h/2-50,32,'#f55','center'); txt('$'+Math.floor(stuntPoints),w/2,h/2,20,'#fc0','center'); btn('ЗАНОВО',w/2-160,h/2+50,150,50,()=>{cr=0;P={x:0,y:0,a:0,stuntSpeed:0};stuntPoints=0},'#e0e'); btn('МЕНЮ',w/2+10,h/2+50,150,50,()=>{save();S='menu'},'#555'); }
 }
 
-// ===== ОБЫЧНАЯ ЕЗДА =====
+// ===== ОБЫЧНАЯ ЕЗДА (С ДРОПАМИ В ПУСТЫНЕ) =====
 function ride(dt){
   const fs=Math.min(3,dt*60);
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}

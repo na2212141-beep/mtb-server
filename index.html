@@ -5,8 +5,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;-webkit-user-select:none;user-select:none;position:fixed;overscroll-behavior:none}
-#game-wrap{position:absolute;top:env(safe-area-inset-top,0px);left:env(safe-area-inset-left,0px);width:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));transform-origin:top left}
-#game-wrap.portrait{width:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));transform:rotate(90deg) translateY(-100%)}
+#game-wrap{position:absolute;top:0;left:0;transform-origin:top left;will-change:transform}
 canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering:-webkit-optimize-contrast;width:100%;height:100%}
 #code-overlay,#nick-overlay,#warn-overlay,#policy-overlay,#text-overlay,#duel-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:none;flex-direction:column;justify-content:center;align-items:center;z-index:1000;text-align:center;padding:20px}
 #nick-overlay{display:flex;background:rgba(10,15,30,0.95);z-index:1002}
@@ -31,7 +30,7 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 <div id="chat-wrapper">
     <div id="chat-messages"></div>
     <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Чат релиза..." maxlength="30" onkeydown="if(event.key==='Enter') sendChat()">
+        <input type="text" id="chat-input" placeholder="Чат..." maxlength="30" onkeydown="if(event.key==='Enter') sendChat()">
         <button id="chat-send" onclick="sendChat()">></button>
     </div>
 </div>
@@ -39,7 +38,7 @@ canvas{display:block;touch-action:none;image-rendering:pixelated;image-rendering
 <div id="policy-overlay">
   <div style="color:#fc0; font-size:26px; margin-bottom:15px; font-weight:bold;">ПРАВИЛА И НОВОСТИ</div>
   <div style="color:#fff; font-size:16px; margin-bottom:15px; line-height:1.5; max-width:500px;">
-    При выходе новых обновлений, закрывайте вкладку и заходите заново.<br><br>
+    Игра официально выпущена!<br><br>
     Все анонсы в TikTok:<br>
     <a href="https://www.tiktok.com/@mtb_stitio" target="_blank" style="color:#0f0; font-size:22px; text-decoration:none; display:inline-block; margin-top:10px;">@mtb_stitio</a>
   </div>
@@ -91,16 +90,22 @@ const wrap=document.getElementById('game-wrap');
 g.imageSmoothingEnabled=false;
 
 // ===== СЕТЬ =====
-const socket = io('https://mtb-server.onrender.com', { transports: ['websocket'] });
+const socket = io('https://mtb-server.onrender.com', { 
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 2000
+});
 let opponents = {}, onlinePlayersCount = 0, serverPlayersList = [];
-let releaseText = "РЕЛИЗ MTB FREERIDE!";
 let isDevOnStage = false;
 
-socket.on('connect', () => { console.log('✅ Подключено!', socket.id); });
+socket.on('connect', () => { 
+    console.log('✅ Подключено!', socket.id); 
+    if(myNick) socket.emit('getData', myNick);
+});
 socket.on('playerConnected', () => { onlinePlayersCount++; });
 socket.on('playerDisconnected', () => { onlinePlayersCount = Math.max(0, onlinePlayersCount - 1); });
 socket.on('opponentMove', (data) => { opponents[data.id] = { x: data.x, y: data.y, a: data.a || 0, air: data.air || 0, nick: data.nick || 'Игрок', lastSeen: Date.now() }; });
-socket.on('releaseAnnouncement', (text) => { releaseText = text; });
 socket.on('stageStatus', (status) => { isDevOnStage = status; });
 
 socket.on('loadDataFromServer', (data) => { 
@@ -195,16 +200,40 @@ function submitNick() {
 }
 if (myNick) { document.getElementById('nick-overlay').style.display = 'none'; setTimeout(() => { if(socket.connected) socket.emit('getData', myNick); }, 1000); }
 
-// ===== РЕСАЙЗ (ОРИГИНАЛЬНЫЙ, С ПОВОРОТОМ) =====
+// ===== РЕСАЙЗ (ЖЕЛЕЗОБЕТОННЫЙ ДЛЯ APK И БРАУЗЕРА) =====
 let W=800, H=500, isRotated=false, lastW=0, lastH=0, lastRot=false;
 function rs(){
-  const p=window.innerHeight>window.innerWidth;
-  const w=p?window.innerHeight:window.innerWidth,h=p?window.innerWidth:window.innerHeight;
-  if(w===lastW&&h===lastH&&p===lastRot)return;lastW=w;lastH=h;lastRot=p;isRotated=p;
-  if(p){wrap.classList.add('portrait');W=w;H=h}else{wrap.classList.remove('portrait');W=w;H=h}
-  const dpr=Math.min(window.devicePixelRatio||1,3);c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);g.setTransform(dpr,0,0,dpr,0,0);g.imageSmoothingEnabled=false;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const p = h > w;
+  
+  if(w===lastW && h===lastH && p===lastRot) return;
+  lastW=w; lastH=h; lastRot=p; isRotated=p;
+  
+  if(p){
+      // Альбомная игра на портретном экране
+      wrap.style.width = h + 'px';
+      wrap.style.height = w + 'px';
+      wrap.style.transform = 'rotate(90deg) translateY(-100%)';
+      W = h; H = w;
+  } else {
+      // Альбомный экран
+      wrap.style.width = w + 'px';
+      wrap.style.height = h + 'px';
+      wrap.style.transform = 'none';
+      W = w; H = h;
+  }
+  
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  c.width = Math.round(W * dpr);
+  c.height = Math.round(H * dpr);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.imageSmoothingEnabled = false;
 }
-rs(); window.addEventListener('resize',rs); window.addEventListener('orientationchange',()=>{rs();setTimeout(rs,100);setTimeout(rs,300)}); setInterval(rs,200);
+rs(); 
+window.addEventListener('resize', rs); 
+window.addEventListener('orientationchange', ()=>{ rs(); setTimeout(rs,100); setTimeout(rs,300); }); 
+setInterval(rs,200);
 
 // ===== НАСТРОЙКИ =====
 let settings={volume:0.5,showFps:false};
@@ -281,7 +310,6 @@ let rbLevel=1,rbDist=0,rbTarget=350,rbFinished=false, rbCamDir = 1;
 let fps=0,fpsCount=0,fpsTime=0;
 let isDevMode = false, usedCodes = [], devCodeUsed = false, pendingDevCode = '', lastNetEmit = 0, rbLives = 5, asm2 = {step: 0, done: false}, superBikeUnlocked = false;
 let previewHelmet = true;
-let releaseTarget = new Date('2026-11-13T18:30:00').getTime();
 let deviceType = /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'PC');
 let dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, rot: 0 };
 
@@ -309,6 +337,7 @@ if (!BK[B]) B = 0; if (!PARTS[garageTab]) garageTab = 'fork';
 }catch(e){}}
 loadData();
 addEventListener('pagehide',save);addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+setInterval(save, 5000); // Автосохранение каждые 5 секунд
 
 // ===== КОДЫ =====
 function openCodeUI() { document.getElementById('code-overlay').style.display = 'flex'; document.getElementById('code-input').value = ''; document.getElementById('code-input').focus(); }
@@ -587,21 +616,27 @@ function patchNotes(){
   g.fillStyle='#1b2a3a';g.fillRect(0,0,W,H); backBtn('menu'); txt('ОБНОВЛЕНИЕ',W/2,44,Math.min(22,W*.045),'#fc0','center');
   let y = 90; const line = (text, color='#fff', size=14) => { txt(text, 20, y, size, color); y += 24; };
   line('ЧТО НОВОГО:', '#0f0', 18);
-  line('- ЭКРАН ВОЗВРАЩЕН В ОРИГИНАЛЬНЫЙ ПОВОРОТ.', '#fc0');
-  line('- ДОБАВЛЕНА СЦЕНА С ДИДЖЕЕМ В КОМНАТЕ РЕЛИЗА.', '#0f0');
-  line('- КНОПКА "МЕНЮ" В ИГРЕ СДВИНУТА ОТ КРАЯ.', '#fff');
-  line('- УБРАН БАЙК "ДОМАШНИЙ".', '#f0f');
+  line('- ИГРА ОФИЦИАЛЬНО ВЫПУЩЕНА!', '#fc0');
+  line('- ЭКРАН ВОЗВРАЩЕН В ОРИГИНАЛЬНЫЙ ПОВОРОТ.', '#0f0');
+  line('- ДОБАВЛЕНО АВТО-СОХРАНЕНИЕ (КАЖДЫЕ 5 СЕК).', '#fff');
+  line('- КНОПКА "МЕНЮ" В ИГРЕ СДВИНУТА ОТ КРАЯ.', '#f0f');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- ИСПРАВЛЕНО ЗАВИСАНИЕ ДЁРТА НА 100%.', '#0f0');
 }
-function releaseScreen(){
-  g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); txt('РЕЛИЗ MTB FREERIDE',W/2,44,Math.min(26,W*.05),'#e01','center');
-  let timeLeft = getTimeLeft();
-  let timeStr = `${timeLeft.d}д ${timeLeft.h}ч ${timeLeft.m}м ${timeLeft.s}с`;
-  txt('ДО ОФИЦИАЛЬНОГО РЕЛИЗА:', W/2, H*.35, 20, '#fff', 'center'); 
-  txt(timeStr, W/2, H*.45, 32, '#0f0', 'center'); 
-  txt('13 Ноября 2026, 18:30', W/2, H*.55, 18, '#ccc', 'center');
-  btn('ОК', W/2-100, H*.7, 200, 55, ()=>S='menu', '#555');
+function newsScreen(){
+  g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu'); 
+  txt('РЕЛИЗ СОСТОЯЛСЯ!', W/2, 54, Math.min(30,W*.055), '#e01', 'center');
+  
+  let y = H*.25;
+  const line = (text, color='#fff', size=16) => { txt(text, W/2, y, size, color, 'center'); y += 30; };
+  
+  line('Игра официально выпущена!', '#fc0', 22);
+  line('К сожалению, онлайн не набрался,', '#ccc');
+  line('но это только начало нашего пути!', '#ccc');
+  line('Спасибо всем, кто ждал и играл.', '#fff', 18);
+  line('Дальше — больше!', '#0f0', 20);
+  
+  btn('ОК', W/2-100, H*.75, 200, 55, ()=>S='menu', '#555');
 }
 function adminScreen(){
   g.fillStyle='#1a1a26';g.fillRect(0,0,W,H); backBtn('menu'); txt('АДМИН-МЕНЮ',W/2,44,Math.min(26,W*.05),'#f55','center');
@@ -624,12 +659,6 @@ function recordsScreen(){
   line('ЛУЧШИЕ ИГРОКИ:', '#0f0', 18); line('1. Первый, кто купит MTB 2016-12: ---', '#fff'); line('2. Лучший рекорд в Дёрте: ' + dropBest, '#fff'); line('3. Лучший рекорд в Трюках: ' + Math.floor(stuntBest), '#fff'); line('4. Лучший заезд: ' + best + ' метров', '#fff');
   y += 20; line('СУПЕР-БАЙК:', '#0f0', 18); line('Статус: ' + (superBikeUnlocked ? 'РАЗБЛОКИРОВАН' : 'ЗАКРЫТ'), superBikeUnlocked ? '#0f0' : '#f55'); line('Улучшение 400 км/ч: ' + (ownedParts.super_upg && ownedParts.super_upg[1] ? 'КУПЛЕНО' : 'НЕТ'), '#fff');
   btn('ОК', W/2-100, H*.8, 200, 55, ()=>S='menu', '#555');
-}
-
-function getTimeLeft() {
-    let now = new Date().getTime(); let diff = releaseTarget - now; if (diff < 0) diff = 0;
-    let d = Math.floor(diff / (1000 * 60 * 60 * 24)); let h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)); let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); let s = Math.floor((diff % (1000 * 60)) / 1000);
-    return { d, h, m, s, diff };
 }
 
 function menu(){
@@ -674,13 +703,10 @@ function menu(){
   const row3y=row2y+bh+15;
   btn('RED BULL', (W-280)/2, row3y, 130, bh*.85, ()=>S='rbMenu','#d90000');
   btn('ДУЭЛЬ (PvP)', (W-280)/2 + 140, row3y, 140, bh*.85, ()=>{ showDuelMenu(); }, '#f0f');
-  
-  const row4y = row3y + bh*.85 + 15;
-  btn('КОМНАТА РЕЛИЗА', (W-280)/2, row4y, 130, bh*.85, ()=>S='releaseRoom','#e01');
-  btn('ТРАССА: '+TR[tr].n, (W-280)/2 + 140, row4y, 140, bh*.85, ()=>{tr=(tr+1)%4;save()},'#555');
 
+  // КНОПКА "НОВОСТИ" ВМЕСТО РЕЛИЗА
   const rightBtnX = W - 100;
-  btn('РЕЛИЗ', rightBtnX, H-200, 90, 30, ()=>S='release', '#e01'); 
+  btn('НОВОСТИ', rightBtnX, H-200, 90, 30, ()=>S='news', '#e01'); 
   btn('РЕКОРДЫ', rightBtnX, H-165, 90, 30, ()=>S='records', '#f60');
   btn('ОБНОВ', rightBtnX, H-130, 90, 30, ()=>S='patch', '#357'); 
   btn('ВВЕСТИ КОД',rightBtnX,H-95,90,30,()=>{openCodeUI()},'#0aa');
@@ -688,35 +714,6 @@ function menu(){
   btn('⚙ НАСТРОЙКИ', W-120, H-60, 110, 45, ()=>S='settings', '#555');
 
   if(isDevMode) btn('АДМИНКА', 10, H-60, 100, 40, ()=>S='admin', '#f55');
-}
-
-function releaseRoom() {
-    g.fillStyle='#1a0a0a';g.fillRect(0,0,W,H); backBtn('menu');
-    txt('КОМНАТА РЕЛИЗА', W/2, H*.15, Math.min(30,W*.06), '#e01', 'center');
-    
-    // Таймер
-    let timeLeft = getTimeLeft();
-    let timeStr = `${timeLeft.d}д ${timeLeft.h}ч ${timeLeft.m}м ${timeLeft.s}с`;
-    txt('ДО СТАРТА:', W/2, H*.25, 16, '#fff', 'center');
-    txt(timeStr, W/2, H*.32, 24, '#0f0', 'center');
-
-    // Диджей (Рисуем)
-    let djX = W/2, djY = H*.65;
-    g.fillStyle='#222'; g.fillRect(djX-60, djY, 120, 40); // Пульт
-    g.fillStyle='#fc0'; g.fillRect(djX-40, djY-10, 20, 10); // Крутилки
-    g.fillRect(djX+20, djY-10, 20, 10);
-    // Голова
-    g.fillStyle='#e8b48a'; g.beginPath(); g.arc(djX, djY-40, 15, 0, 7); g.fill();
-    // Наушники
-    g.strokeStyle='#fff'; g.lineWidth=4; g.beginPath(); g.arc(djX, djY-40, 15, Math.PI, 0); g.stroke();
-    g.fillStyle='#fff'; g.fillRect(djX-18, djY-45, 8, 15); g.fillRect(djX+10, djY-45, 8, 15);
-    
-    // Музыка (Нотки)
-    let t = performance.now()*.005;
-    txt('♪', djX-40+Math.sin(t)*10, djY-70+Math.cos(t)*10, 20, '#f0f');
-    txt('♫', djX+40+Math.cos(t)*10, djY-80+Math.sin(t)*10, 20, '#0ff');
-
-    btn('ОТКРЫТЬ ЧАТ', W/2-100, H*.85, 200, 45, ()=>{ document.getElementById('chat-wrapper').style.display='flex'; }, '#357');
 }
 
 function duelMode(dt){
@@ -777,7 +774,6 @@ function duelMode(dt){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
     
-    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДУЭЛЬ)
     btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(cr>40){
     finishDuel(duelState.opponentId, myNick);
@@ -832,7 +828,6 @@ function stunt(dt){
   if(!cr){ 
       circleBtn(gasCX, gasCY, btnR, '#2a7', drawChainring, null, true); txt('ГАЗ', gasCX, gasCY + btnR + 15, 14, '#2a7', 'center'); 
       circleBtn(stuntCX, stuntCY, btnR, '#e0e', drawStar, null, true); txt('ВИЛЛИ', stuntCX, stuntCY + btnR + 15, 14, '#e0e', 'center'); 
-      // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ТРЮК)
       btn('МЕНЮ', w-110, 40, 80, 40, ()=>{save();S='menu'},'#555');
   } else if(cr>40){ 
       g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,w,h); 
@@ -918,7 +913,6 @@ function ride(dt){
     if(!P.air){circleBtn(gasCX,gasCY,btnR,'#2a7',drawChainring,null,true);circleBtn(brakeCX,brakeCY,btnR,'#c33',drawBrakeIcon,null,true);circleBtn(jumpCX,jumpCY,btnR,'#fc0',drawJumpIcon,()=>{if(!P.air){P.air=1;P.vy=-10}})}
     else{circleBtn(brakeCX,brakeCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1),null,true);circleBtn(gasCX,gasCY,btnR,'#74a',(cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1),null,true);circleBtn(trickCX,trickCY,btnR*.85,'#e70',drawStar,()=>{if(!trick.name){const t=TRICKS[Math.floor(Math.random()*TRICKS.length)];trick={name:t.n,t:t.dur,maxT:t.dur,bonus:t.bonus,col:t.col,angle:0}}})}
     
-    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ЕЗДА)
     btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ best=Math.max(best,Math.floor(P.x/30)); save(); S='menu'; }, '#555');
   }else if(cr>40){
     g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,0,W,H); txt('УПАЛ',W/2,H/2-50,30,'#f55','center'); txt('Проехал: '+Math.floor(P.x/30)+'м  Рекорд: '+best+'м',W/2,H/2-15,16,'#fff','center');
@@ -1020,7 +1014,6 @@ function dirtModeFunc(dt){
       btn('КОПАТЬ', w/2-80, h-100, 160, 50, ()=>{ dirtMode.state='dig'; dirtMode.digTimer=0; }, '#a62');
       btn('СЕСТЬ НА ВЕЛ', w/2-100, 90, 200, 40, ()=>{ dirtMode.state='ride'; }, '#357');
       
-      // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - ПЕШКОМ)
       btn('МЕНЮ', w-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   } else if(dirtMode.state === 'dig'){
       txt('КОПАЕМ...', w/2, 40, 24, '#a62', 'center');
@@ -1029,7 +1022,6 @@ function dirtModeFunc(dt){
           txt('РАЗГОНЯЙСЯ!', w/2, 40, 16, '#fc0', 'center');
           circleBtn(w*0.2, h*0.8, 50, '#c33', drawBrakeIcon, null, true); circleBtn(w*0.8, h*0.8, 50, '#2a7', drawChainring, null, true);
           
-          // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (ДЁРТ - НА ВЕЛЕ)
           btn('МЕНЮ', w-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
       } else {
           txt('ДЕЛАЙ ТРЮК!', w/2, 40, 20, '#e70', 'center'); txt('+350$', w/2, 65, 14, '#fff', 'center');
@@ -1184,7 +1176,6 @@ function rb(dt){
   txt('Дист: '+rbDist+'/'+rbTarget+'м',40,72,14,'#fff');
   if(gear.rbHelmet&&unlocked.rbHelmet&&gear.rbChest&&unlocked.rbChest&&rbLives>0){txt('❤️x'+rbLives,W/2,50,16,'#e10600','center')}
 
-  // КНОПКА РАЗВОРОТА СДВИНУТА
   btn('РАЗВЕРНУТЬСЯ', W-300, 40, 160, 40, ()=>{ rbCamDir *= -1; }, '#555');
 
   if(!cr&&!rbFinished){
@@ -1197,7 +1188,6 @@ function rb(dt){
       circleBtn(gx,gyC,btnR,'#74a',(cx,cy,r,c)=>drawFlipIcon(cx,cy,r,c,1),null,true)
     }
     
-    // КНОПКА МЕНЮ В ПРАВОМ ВЕРХНЕМ УГЛУ (RED BULL)
     btn('МЕНЮ', W-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
   }else if(rbFinished||cr>40){
     g.fillStyle='rgba(0,0,0,.8)';g.fillRect(0,0,W,H);
@@ -1257,9 +1247,6 @@ function loop(now){
   
   btns=[];
   
-  if(S === 'releaseRoom' && Date.now() >= releaseTarget) { document.getElementById('chat-wrapper').style.display = 'flex'; } 
-  else { document.getElementById('chat-wrapper').style.display = 'none'; }
-
   try{
     if(loading.on){
         loading.p += 0.05; 
@@ -1271,7 +1258,7 @@ function loop(now){
         }
         drawLoading();
     }
-    else if(S==='splash')splash(); else if(S==='menu')menu(); else if(S==='patch')patchNotes(); else if(S==='release')releaseScreen(); else if(S==='admin')adminScreen(); else if(S==='records')recordsScreen(); else if(S==='settings')settings_screen(); else if(S==='dirt')dirtModeFunc(dt); else if(S==='ride')ride(dt); else if(S==='duel')duelMode(dt); else if(S==='stunt')stunt(dt); else if(S==='rb')rb(dt); else if(S==='rbMenu')rbMenu(); else if(S==='shop')shop(); else if(S==='garage')garage(); else if(S==='workshop')workshop(); else if(S==='workshop2')workshop2(); else if(S==='dress')dress(); else if(S==='assemble')assemble(dt); else if(S==='releaseRoom')releaseRoom(); else menu();
+    else if(S==='splash')splash(); else if(S==='menu')menu(); else if(S==='patch')patchNotes(); else if(S==='news')newsScreen(); else if(S==='admin')adminScreen(); else if(S==='records')recordsScreen(); else if(S==='settings')settings_screen(); else if(S==='dirt')dirtModeFunc(dt); else if(S==='ride')ride(dt); else if(S==='duel')duelMode(dt); else if(S==='stunt')stunt(dt); else if(S==='rb')rb(dt); else if(S==='rbMenu')rbMenu(); else if(S==='shop')shop(); else if(S==='garage')garage(); else if(S==='workshop')workshop(); else if(S==='workshop2')workshop2(); else if(S==='dress')dress(); else if(S==='assemble')assemble(dt); else menu();
   }catch(e){ console.log(e); }
   if(settings.showFps){ g.fillStyle='rgba(0,0,0,.5)';g.fillRect(W-70,10,64,20); g.fillStyle='#0f0';g.font='bold 12px monospace';g.textAlign='right';g.textBaseline='middle'; g.fillText(fps+' FPS',W-15,20); }
   requestAnimationFrame(loop);

@@ -128,7 +128,15 @@ socket.on('superBikeWiped', () => {
     alert('⚠ ВНИМАНИЕ! Администратор забрал Супер-Байк у всех игроков!');
 });
 
-socket.on('adminGetAllResult', (players) => { serverPlayersList = players; alert("Данные загружены!"); });
+socket.on('adminGetAllResult', (players) => { 
+    serverPlayersList = players; 
+    if (players.length === 0) {
+        alert("В базе пока нет игроков!");
+    } else {
+        alert("Данные загружены! Смотри список на экране.");
+    }
+});
+
 socket.on('chatMessage', (data) => { const box = document.getElementById('chat-messages'); const msg = document.createElement('div'); msg.innerHTML = `<span style="color:#fc0">${data.nick}:</span> <span style="color:#fff">${data.text}</span>`; box.appendChild(msg); if (box.children.length > 5) box.removeChild(box.firstChild); box.scrollTop = box.scrollHeight; });
 
 socket.on('receiveDuelInvite', (data) => {
@@ -310,7 +318,6 @@ let fps=0,fpsCount=0,fpsTime=0;
 let isDevMode = false, usedCodes = [], devCodeUsed = false, pendingDevCode = '', lastNetEmit = 0, rbLives = 5, asm2 = {step: 0, done: false}, superBikeUnlocked = false;
 let previewHelmet = true;
 let deviceType = /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPad/i.test(navigator.userAgent) ? 'iOS' : 'PC');
-// ДОБАВИЛ py (высоту) в dirtMode
 let dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, py: 0, rot: 0 };
 
 const SK='mtb_apk_final_multiplayer';
@@ -698,7 +705,6 @@ function menu(){
   btn('СВАРКА',row2x+(bw2+5)*3,row2y,bw2,bh,()=>S='workshop','#c33'); 
   btn('СБОРКА',row2x+(bw2+5)*4,row2y,bw2,bh,()=>S='workshop2','#3c9'); 
   btn('ТРЮК',row2x+(bw2+5)*5,row2y,bw2,bh,()=>{stuntPoints=0;P={x:0,y:0,a:0,stuntSpeed:0};cr=0;S='stunt';save()},'#e0e');
-  // ИНИЦИАЛИЗАЦИЯ py: 0 В dirtMode
   btn('ДЁРТ',row2x+(bw2+5)*6,row2y,bw2,bh,()=>{ dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, py: 0, rot: 0 }; startLoading(()=>{ S='dirt'; }); },'#a63');
   
   const row3y=row2y+bh+15;
@@ -721,7 +727,6 @@ function duelMode(dt){
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
   while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
   const pStats=partsStats(); 
-  // СКОРОСТЬ УВЕЛИЧЕНА
   let vmax = (BK[B].v + (cfS() + pStats.sp)*5) * 1.3;
   if(B === 11) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 45 : 30;
 
@@ -768,7 +773,7 @@ function duelMode(dt){
 
   if(!cr){
       g.save();
-      g.translate(W*.35, P.y - 15); // СМЕЩЕН ЦЕНТР ВРАЩЕНИЯ
+      g.translate(W*.35, P.y - 15); 
       g.rotate(P.a);
       g.translate(0, 15);
       g.scale(SC,SC);
@@ -860,7 +865,6 @@ function ride(dt){
   while(nm<P.x+W*2){ms.push(nm);nm+=300+Math.random()*400}
   while(nr<P.x+W*2){rp.push({x:nr,used:0});nr+=600+Math.random()*600}
   const pStats=partsStats(); 
-  // СКОРОСТЬ УВЕЛИЧЕНА
   let vmax = (BK[B].v + (cfS() + pStats.sp)*5) * 1.3;
   if(B === 11) vmax = (ownedParts.super_upg && ownedParts.super_upg[1]) ? 45 : 30;
 
@@ -915,7 +919,7 @@ function ride(dt){
   }
   if(!cr){
       g.save();
-      g.translate(W*.35, P.y - 15); // СМЕЩЕН ЦЕНТР ВРАЩЕНИЯ
+      g.translate(W*.35, P.y - 15); 
       g.rotate(P.a);
       g.translate(0, 15);
       g.scale(SC,SC);
@@ -959,20 +963,18 @@ function dirtModeFunc(dt){
   }else if(dirtMode.state==='ride'){
     if(!dirtMode.air){
       const gas=heldCircle(w*0.8,h*0.8,50), brake=heldCircle(w*0.2,h*0.8,50);
-      // УВЕЛИЧЕНА СКОРОСТЬ
       if(gas) dirtMode.vx+=250*dt; else if(brake) dirtMode.vx-=200*dt; else dirtMode.vx*=0.98;
       dirtMode.vx=Math.max(0,Math.min(450,dirtMode.vx));
       dirtMode.px+=dirtMode.vx*dt;
       
       dirtMode.ramps.forEach(r=>{
         if(Math.abs(dirtMode.px-r.x)<20 && dirtMode.vx>100){
-          dirtMode.air=true; dirtMode.vy=-30; dirtMode.rot=0; dirtMode.py=0; // ПРИЖОК ВВЕРХ
+          dirtMode.air=true; dirtMode.vy=-30; dirtMode.rot=0; dirtMode.py=0;
           dirtMode.vx=dirtMode.vx*1.2; 
           trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0};
         }
       });
     }else{
-      // ФИЗИКА ПОЛЁТА
       dirtMode.vy += 50 * dt; 
       dirtMode.py += dirtMode.vy * dt;
       dirtMode.px += dirtMode.vx * dt;
@@ -980,7 +982,7 @@ function dirtModeFunc(dt){
       if(heldCircle(w*0.2,h*0.8,50)) dirtMode.rot-=5*dt;
       if(heldCircle(w*0.8,h*0.8,50)) dirtMode.rot+=5*dt;
       
-      if(dirtMode.py >= 0 && dirtMode.vy > 0){ // ПРИЗЕМЛЕНИЕ
+      if(dirtMode.py >= 0 && dirtMode.vy > 0){
           dirtMode.py = 0; dirtMode.air=false; dirtMode.vy=0;
           let la = Math.abs(dirtMode.rot % (Math.PI*2));
           let safe = false;
@@ -1011,7 +1013,6 @@ function dirtModeFunc(dt){
   });
 
   let pSX = dirtMode.px - (dirtMode.px - W/2); if(pSX < 50) pSX = 50;
-  // ПОДНЯТ НАД ЗЕМЛЕЙ И ДОБАВЛЕН ПРЫЖОК (py)
   g.save(); g.translate(pSX, groundY - 20 + dirtMode.py);
 
   if(dirtMode.state === 'walk' || dirtMode.state === 'dig'){
@@ -1035,7 +1036,6 @@ function dirtModeFunc(dt){
           if(dirtMode.digTimer > 1.0){ dirtMode.state='walk'; dirtMode.digTimer=0; dirtMode.ramps.push({x:dirtMode.px+100}); $+=5; say('+5$ за трамплин!'); save(); }
       }
   } else {
-      // ЦЕНТР ВРАЩЕНИЯ ДЛЯ ТРЮКОВ В ДЁРТЕ
       g.translate(0, -15);
       g.rotate(dirtMode.rot);
       g.translate(0, 15);
@@ -1199,7 +1199,7 @@ function rb(dt){
 
   if(!cr){
     g.save();
-    g.translate(W*.35,P.y - 15); // СМЕЩЕН ЦЕНТР ВРАЩЕНИЯ
+    g.translate(W*.35,P.y - 15);
     g.rotate(P.a);
     g.translate(0, 15);
     g.scale(SC,SC);

@@ -285,7 +285,6 @@ const TR=[
 const CL=['#e33','#fc0','#3c6','#39f','#fff','#222','#f4a','#f60','#0e0','#111'];
 const MAT=[{n:'Сталь',c:5,sp:0},{n:'Алюминий',c:10,sp:.05},{n:'Карбон',c:20,sp:.1},{n:'Титан',c:30,sp:.15}];
 const GEO=[{n:'Короткая',sp:0,fl:.15},{n:'Средняя',sp:.05,fl:.05},{n:'Длинная',sp:.1,fl:0}];
-// УВЕЛИЧИЛ GL (было 22) - ЭТО ПОДНИМАЕТ ВЕЛИК НАД ЗЕМЛЕЙ
 const SC=1.5,GL=28,FOX_RED='#e10600',FOX_WHITE='#eee';
 const PARTS={
   fork:[{n:'Жёсткая',price:0,col:'#888',travel:0,sp:0},{n:'RockShox',price:3000,col:'#c0c',travel:20,sp:.05},{n:'Fox 35',price:8000,col:'#fa0',travel:35,sp:.1},{n:'Fox 40',price:15000,col:'#f60',travel:40,sp:.15},{n:'MANITOU',price:25000,col:'#0ff',travel:45,sp:.18}],
@@ -306,7 +305,7 @@ let S='splash',R=0,B=0,$=0,M=0,fr=0,own=BK.map((b,i)=>+!i),P={x:0},ms=[],nm=0,ms
 let gear={helmet:'#fc0',jersey:'#e33',pants:'#222',chest:false,fox:false,rbHelmet:false,rbChest:false};
 let unlocked={foxHelmet:false,foxChest:false,foxPants:false,rbHelmet:false,rbChest:false};
 let missions={flip5:{done:false,prog:0,need:5},trick10:{done:false,prog:0,need:10},dist1000:{done:false,prog:0,need:1000},metal20:{done:false,prog:0,need:20}};
-let cf=null,useCf=false,fd=[0,1,0],pg=0,tr=0,rp=[],nr=1000,cr=0,cv=0,rv=0,rX=0,best=0;
+let cf=null,useCf=false,fd=[0,1,0],pg=0,tr=0,rp=[],nr=1000,cr=0,cv=0,rv=0,rX=0,best=0,dropBest=0;
 let build={fork:0,rim:0,tire:0,brake:0,drive:0,cockpit:0,super_upg:0};
 let ownedParts={fork:[1,0,0,0,0],rim:[1,0,0],tire:[1,0,0,0],brake:[1,0,0,0],drive:[1,0,0],cockpit:[1,0,0],super_upg:[1,0]};
 let garageTab='fork',loading={on:false,p:0,cb:null},trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0},lastTime=performance.now();
@@ -321,7 +320,7 @@ let deviceType = /Android/i.test(navigator.userAgent) ? 'Android' : (/iPhone|iPa
 let dirtMode = { state: 'walk', px: 0, vx: 0, cam: 0, digTimer: 0, ramps: [], air: false, vy: 0, py: 0, rot: 0 };
 
 const SK='mtb_apk_final_multiplayer';
-function saveLocal(){try{localStorage.setItem(SK,JSON.stringify({$,M,B,own,fr,best,gear,unlocked,missions,cf,useCf,tr,R,build,ownedParts,dropBest,tutorialDone,stuntBest,rbLevel,asmLevel,isDevMode,usedCodes,devCodeUsed,asm2,superBikeUnlocked}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem(SK,JSON.stringify({$,M,B,own,fr,best,dropBest,gear,unlocked,missions,cf,useCf,tr,R,build,ownedParts,tutorialDone,stuntBest,rbLevel,asmLevel,isDevMode,usedCodes,devCodeUsed,asm2,superBikeUnlocked}))}catch(e){}}
 function save(){
     saveLocal(); 
     if(socket.connected && myNick) { 
@@ -625,8 +624,9 @@ function patchNotes(){
   line('ЧТО НОВОГО:', '#0f0', 18);
   line('- ИГРА ОФИЦИАЛЬНО ВЫПУЩЕНА!', '#fc0');
   line('- УЛУЧШЕНА ФИЗИКА ПРЫЖКОВ НА ДЁРТЕ', '#0f0');
-  line('- ПЕРСОНАЖ ПОДНЯТ НАД ЗЕМЛЕЙ', '#fff');
-  line('- СКОРОСТЬ ВЕЛОСИПЕДА УВЕЛИЧЕНА', '#f0f');
+  line('- ВОЗВРАЩЕН ВЫБОР ТРАСС (ЛЕС, ПУСТЫНЯ...)', '#fff');
+  line('- ДОБАВЛЕНЫ ДРОПЫ (НАГРАДА 100$)', '#f0f');
+  line('- ТРЮКИ ТЕПЕРЬ ДАЮТ ПО 5$', '#f0f');
   y += 15; line('ИСПРАВЛЕНИЯ БАГОВ:', '#0f0', 18);
   line('- ИСПРАВЛЕН ПЕРЕКОС ПРИ ТРЮКАХ.', '#0f0');
 }
@@ -694,6 +694,9 @@ function menu(){
   let rg = RD[R].g; let previewConfig = {frameCol: rg.b, rimCol:'#333', tireCol:'#111', tireW:8, forkCol:'#fa0'}; let customGear = {j: rg.j, p: rg.p, h: rg.h, rb: rg.rb && unlocked.rbHelmet, showHelmet: previewHelmet};
   drawBike(0, 0, true, previewConfig, {}, false, customGear); g.restore();
   btn(previewHelmet ? 'СНЯТЬ ШЛЕМ' : 'НАДЕТЬ ШЛЕМ', previewX - 50, previewY + 80, 100, 30, ()=>{previewHelmet = !previewHelmet;}, previewHelmet ? '#c33' : '#2a7');
+
+  // КНОПКА ВЫБОРА ТРАССЫ
+  btn('ТРАССА: '+TR[tr].n, W/2-Math.min(180,(W-40)/2-8)/2, H*0.58, Math.min(180,(W-40)/2-8), 35, ()=>{tr=(tr+1)%TR.length; save(); say('Трасса: '+TR[tr].n);}, '#357');
 
   const bw=Math.min(180,(W-40)/2-8), bh=Math.min(48,H*.075); const row1y = H*0.65;
   btn('ИГРАТЬ',(W-bw)/2,row1y,bw,bh,()=>{ if(useCf && cf || useCf && asm2.done) { if(M >= 10) { M -= 10; save(); startLoading(start); } else { say('Мало МЕТ!'); } } else { if(!tutorialDone)startAssemble(); else startLoading(start); } },'#2a7');
@@ -873,7 +876,10 @@ function ride(dt){
   if(!cr){
     if(!P.air){ const gas=heldCircle(gasCX,gasCY,btnR),brake=heldCircle(brakeCX,brakeCY,btnR); isBraking = brake; if(gas&&!brake)P.vx+=vmax*.035*fs; else if(brake&&!gas)P.vx-=vmax*.045*fs; else P.vx*=Math.pow(.985,fs); P.vx=Math.max(0,Math.min(vmax,P.vx)) }
     P.x+=P.vx*fs;const gy=T(P.x)-GL*SC,sl=Math.atan2(T(P.x+40)-T(P.x-40),80);
-    rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;$+=20;t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);
+    
+    // ДРОПЫ ДАЮТ $100
+    rp.forEach(t=>{if(!P.air&&Math.abs(t.x-P.x)<Math.max(P.vx,1)&&(!t.used||performance.now()-t.used>700)){P.air=1;P.vy=-9-RD[R].s*.4;$+=100;say('+$100 за дроп!');t.used=performance.now()}});rp=rp.filter(t=>t.x>P.x-600);
+    
     if(!P.air){sus=sus*.8+(gy-P.y)*.2;P.y+=(gy-P.y)*.35*fs;P.a=sl;$+=P.vx*.02*fs;missions.dist1000.prog=Math.floor(P.x/30)}
     else{
       P.vy+=.4*fs;P.y+=P.vy*fs; const r=(heldCircle(brakeCX,brakeCY,btnR)?-1:0)+(heldCircle(gasCX,gasCY,btnR)?1:0); P.a+=r*7*dt*(1+cfF());P.tot+=r*7*dt*(1+cfF());
@@ -883,9 +889,14 @@ function ride(dt){
         let safeAngle = 1.5; if (tr === 1) safeAngle = 0.7; 
         let requireBrake = false; if(B === 11 && P.vx > 15) { safeAngle = 0.8; requireBrake = true; }
         let landedSafe = Math.abs(d-sl) < safeAngle; if(requireBrake && !isBraking) landedSafe = false; 
-        if(landedSafe){ if(fl>0){const money=fl*(r>0?30:80);$+=money;say(fl+'x +$'+money);missions.flip5.prog+=fl} }
+        
+        if(landedSafe){ 
+            if(fl>0){ $+= (fl*10); say(fl+'x +$'+(fl*10)); missions.flip5.prog+=fl; } 
+        }
         else{ let saved = false; if ((gear.rbHelmet && unlocked.rbHelmet) && (gear.rbChest && unlocked.rbChest) && rbLives > 0) { rbLives--; say('RED BULL СПАС! ЖИЗНЕЙ: ' + rbLives); saved = true; } if (!saved) { cr=1;cv=Math.max(P.vx,2)*1.1;rX=P.x+30;best=Math.max(best,Math.floor(P.x/30)); } else { P.a = sl; P.vx *= 0.5; P.y = gy; P.tot = 0; trick = {name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}; } }
-        if(trick.name){ const earn=Math.round(trick.bonus*Math.max(0,1-trick.t/trick.maxT)); if(earn>0){ $+=earn; missions.trick10.prog++; say(trick.name+' +$'+earn); } trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}; }
+        
+        // ЗА ТРЮКИ ДАЮТ ПО $5
+        if(trick.name){ $+=5; missions.trick10.prog++; say(trick.name+' +$5'); trick={name:'',t:0,maxT:0,bonus:0,col:'#fff',angle:0}; }
         P.tot=0;
       }
     }
@@ -989,9 +1000,9 @@ function dirtModeFunc(dt){
           if(la < 1.5 || la > 4.8) safe = true; 
 
           if(safe){
-              let b = 350; 
-              if(trick.name) b += 50;
-              $ += b; say('УДАЧНО! +' + b + '$'); save();
+              let b = 100; 
+              if(trick.name) b += 5;
+              $ += b; say('УДАЧНО! +$' + b); save();
           } else {
               say('УПАЛ!'); dirtMode.state='walk'; dirtMode.vx=0;
           }
@@ -1062,7 +1073,7 @@ function dirtModeFunc(dt){
           
           btn('МЕНЮ', w-110, 40, 80, 40, ()=>{ save(); S='menu'; }, '#555');
       } else {
-          txt('ДЕЛАЙ ТРЮК!', w/2, 40, 20, '#e70', 'center'); txt('+350$', w/2, 65, 14, '#fff', 'center');
+          txt('ДЕЛАЙ ТРЮК!', w/2, 40, 20, '#e70', 'center'); txt('+$5', w/2, 65, 14, '#fff', 'center');
           circleBtn(w*0.2, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,-1), null, true);
           circleBtn(w*0.8, h*0.8, 50, '#74a', (cx,cy,r,col)=>drawFlipIcon(cx,cy,r,col,1), null, true);
       }

@@ -17,6 +17,7 @@ io.on('connection', (socket) => {
     onlinePlayersCount++;
     io.emit('playerConnected');
 
+    // === ЗАГРУЗКА ДАННЫХ ИГРОКА ===
     socket.on('getData', async (nick) => {
         try {
             let playerData = await redis.get(`player:${nick}`);
@@ -35,11 +36,11 @@ io.on('connection', (socket) => {
         } catch (e) { console.log('Ошибка загрузки:', e); }
     });
 
+    // === СОХРАНЕНИЕ ДАННЫХ И ТОП-3 ===
     socket.on('saveData', async (data) => {
         try {
             await redis.set(`player:${data.nick}`, JSON.stringify(data));
             
-            // Проверка на Топ-3 покупателей MTB 2016-12
             if (data.ownedBikes && data.ownedBikes[10] === 1) {
                 let top3 = await redis.get('global:mtb_top3');
                 if (!top3) top3 = [];
@@ -54,6 +55,7 @@ io.on('connection', (socket) => {
         } catch (e) { console.log('Ошибка сохранения:', e); }
     });
 
+    // === РЕКОРДЫ ===
     socket.on('getRecords', async () => {
         try {
             let top3 = await redis.get('global:mtb_top3') || [];
@@ -62,6 +64,38 @@ io.on('connection', (socket) => {
         } catch (e) { console.log('Ошибка рекордов:', e); }
     });
 
+    // === ДУЭЛИ ===
+    socket.on('sendDuelInvite', (data) => {
+        io.to(data.targetId).emit('receiveDuelInvite', { fromId: socket.id, fromNick: data.fromNick, bet: data.bet });
+    });
+
+    socket.on('acceptDuel', (data) => {
+        io.to(data.challengerId).emit('duelStarted', { opponentId: socket.id, isChallenger: true, bet: data.bet });
+        socket.emit('duelStarted', { opponentId: data.challengerId, isChallenger: false, bet: data.bet });
+    });
+
+    socket.on('duelFinished', async (data) => {
+        try {
+            let winnerData = await redis.get(`player:${data.winnerNick}`);
+            if (winnerData) {
+                if (typeof winnerData === 'string') winnerData = JSON.parse(winnerData);
+                winnerData.money += data.bet;
+                await redis.set(`player:${data.winnerNick}`, JSON.stringify(winnerData));
+            }
+
+            let loserData = await redis.get(`player:${data.loserNick}`);
+            if (loserData) {
+                if (typeof loserData === 'string') loserData = JSON.parse(loserData);
+                loserData.money -= data.bet;
+                await redis.set(`player:${data.loserNick}`, JSON.stringify(loserData));
+            }
+
+            io.to(data.winnerId).emit('duelResult', { win: true, bet: data.bet });
+            io.to(data.loserId).emit('duelResult', { win: false, bet: data.bet });
+        } catch (e) { console.log('Ошибка дуэли:', e); }
+    });
+
+    // === АДМИНКА ===
     socket.on('adminWipeSuperBike', async () => {
         try {
             const keys = await redis.keys('player:*');
@@ -78,6 +112,7 @@ io.on('connection', (socket) => {
         } catch (e) { console.log(e); }
     });
 
+    // === ДВИЖЕНИЕ И ЧАТ ===
     socket.on('playerMove', (data) => { socket.broadcast.emit('opponentMove', { id: socket.id, ...data }); });
     socket.on('chatMessage', (data) => { io.emit('chatMessage', data); });
     socket.on('releaseAnnouncement', (text) => { io.emit('releaseAnnouncement', text); });
